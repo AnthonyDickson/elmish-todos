@@ -1,7 +1,7 @@
-namespace OxpeckerApi.Todos.Store
+namespace ElmishTodos.Todos.Store
 
 open System
-open OxpeckerApi.Todos.Models
+open ElmishTodos.Todos.Models
 
 type TodoMessage =
     private

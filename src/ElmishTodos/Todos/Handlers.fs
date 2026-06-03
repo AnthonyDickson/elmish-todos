@@ -1,10 +1,10 @@
-namespace OxpeckerApi.Todos.Handlers
+namespace ElmishTodos.Todos.Handlers
 
 open System
 open Oxpecker
-open OxpeckerApi.Todos.Models
-open OxpeckerApi.Todos.Store
-open OxpeckerApi.Middleware
+open ElmishTodos.Todos.Models
+open ElmishTodos.Todos.Store
+open ElmishTodos.Middleware
 
 module Handlers =
     /// GET /todos — list all items

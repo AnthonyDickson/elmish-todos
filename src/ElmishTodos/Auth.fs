@@ -1,4 +1,4 @@
-namespace OxpeckerApi.Auth
+namespace ElmishTodos.Auth
 
 module Auth =
     open Microsoft.AspNetCore.Authentication

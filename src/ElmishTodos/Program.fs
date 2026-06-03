@@ -1,4 +1,4 @@
-module OxpeckerApi.Program
+module ElmishTodos.Program
 
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Builder
@@ -6,10 +6,10 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
-open OxpeckerApi.Auth
-open OxpeckerApi.OpenApi
-open OxpeckerApi.Todos.Routes
-open OxpeckerApi.Todos.Store
+open ElmishTodos.Auth
+open ElmishTodos.OpenApi
+open ElmishTodos.Todos.Routes
+open ElmishTodos.Todos.Store
 open Scalar.AspNetCore
 open System.Collections.Generic
 open System.Threading.Tasks

@@ -1,4 +1,4 @@
-namespace OxpeckerApi.OpenApi
+namespace ElmishTodos.OpenApi
 
 module OpenApi =
     open Microsoft.AspNetCore.OpenApi

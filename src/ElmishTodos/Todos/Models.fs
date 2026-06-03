@@ -1,4 +1,4 @@
-namespace OxpeckerApi.Todos.Models
+namespace ElmishTodos.Todos.Models
 
 open System
 

@@ -14,7 +14,7 @@ cd my-project
 ./setup.sh MyProject
 ```
 
-This renames all namespaces, modules, project files, directories, and solution file from `OxpeckerApi` to `MyProject`.
+This renames all namespaces, modules, project files, directories, and solution file from `ElmishTodos` to `MyProject`.
 
 ## Getting Started
 
@@ -23,13 +23,13 @@ This renames all namespaces, modules, project files, directories, and solution f
 dotnet build
 
 # Run
-dotnet run --project src/OxpeckerApi
+dotnet run --project src/ElmishTodos
 
 # Format code (fantomas)
 dotnet fantomas .
 
 # Lint
-dotnet fsharplint lint OxpeckerApi.slnx
+dotnet fsharplint lint ElmishTodos.slnx
 ```
 
 ### Development Environment

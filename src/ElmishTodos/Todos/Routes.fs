@@ -1,14 +1,14 @@
-namespace OxpeckerApi.Todos.Routes
+namespace ElmishTodos.Todos.Routes
 
 module TodoRoutes =
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
-    open OxpeckerApi.Auth
-    open OxpeckerApi.Middleware
-    open OxpeckerApi.Todos.Handlers
-    open OxpeckerApi.Todos.Models
-    open OxpeckerApi.Todos.Store
+    open ElmishTodos.Auth
+    open ElmishTodos.Middleware
+    open ElmishTodos.Todos.Handlers
+    open ElmishTodos.Todos.Models
+    open ElmishTodos.Todos.Store
     open System.Collections.Generic
     open System.Threading.Tasks
 
