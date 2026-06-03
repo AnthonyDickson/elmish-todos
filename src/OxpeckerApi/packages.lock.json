@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "FSharp.Core": {
+        "type": "Direct",
+        "requested": "[10.1.202, )",
+        "resolved": "10.1.202",
+        "contentHash": "AEGcKK+UJOEa+g7+Y5N/R+EtafmIuqufCDeRdWXoIko1/JQT4jr+zH2PnNHVC4gPB19/pmIpQiuAs01pH8Ao5Q=="
+      },
+      "Oxpecker": {
+        "type": "Direct",
+        "requested": "[2.0.0, )",
+        "resolved": "2.0.0",
+        "contentHash": "abvcUF/MwzhyL7WXMAAlwGe9w7T9DJDXPCYuu456rXVvUK3sNsvIOuAjDecSvHJ4CWJwa1/RrMNPWowqtZuIRw==",
+        "dependencies": {
+          "FSharp.Core": "10.0.100",
+          "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
+          "Oxpecker.ViewEngine": "2.0.0",
+          "TypeShape": "10.0.0"
+        }
+      },
+      "Oxpecker.OpenApi": {
+        "type": "Direct",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "5H53G3qhJtx46rYien5fltC8gbzhn29m6nbWPL8QgyFlq0WjM4Kr+/SgmSi8hU3wljEOAFHyq4UuU1yM+ChUzA==",
+        "dependencies": {
+          "FSharp.Core": "10.0.101",
+          "Microsoft.AspNetCore.OpenApi": "10.0.0",
+          "Oxpecker": "2.0.0"
+        }
+      },
+      "Scalar.AspNetCore": {
+        "type": "Direct",
+        "requested": "[2.5.5, )",
+        "resolved": "2.5.5",
+        "contentHash": "0LTfeypcNYxE4j0NidUOswdKPWCkEk8mGs9Z/rexH7aHFS/7NqxALlQ3mOLLPQvhmLPIztCIShw0j4D6KYJ24w=="
+      },
+      "Microsoft.AspNetCore.OpenApi": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "0aqIF1t+sA2T62LIeMtXGSiaV7keGQaJnvwwmu+htQdjCaKYARfXAeqp4nHH9y2etpilyZ/tnQzZg4Ilmo/c4Q==",
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        }
+      },
+      "Microsoft.IO.RecyclableMemoryStream": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "s/s20YTVY9r9TPfTrN5g8zPF1YhwxyqO6PxUkrYTGI2B+OGPe9AdajWZrLhFqXIvqIW23fnUE4+ztrUWNU1+9g=="
+      },
+      "Microsoft.OpenApi": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw=="
+      },
+      "Oxpecker.ViewEngine": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "nGVqJHx+tMqjGZR860aT3+SzRVE5tGoJmiLnA0aEj8MSPj8mj/3wJe68pfSASTHGE5YszbPMzUWXPOB11atwvQ==",
+        "dependencies": {
+          "FSharp.Core": "10.0.100"
+        }
+      },
+      "TypeShape": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "sp/8J8jyB/Ns4HoC73f8BtsAJKw+OZ27D97VgQlBs1taMlzKplKuaxhQ6ErswDVUHej2WgIfm4wLWy/3wxYSFA==",
+        "dependencies": {
+          "FSharp.Core": "4.5.4"
+        }
+      }
+    }
+  }
+}
