@@ -1,4 +1,4 @@
-namespace ElmishTodos.Todos.Models
+namespace ElmishTodos.Server.Todos.Models
 
 open System
 

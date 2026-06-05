@@ -1,4 +1,4 @@
-namespace ElmishTodos.Auth
+namespace ElmishTodos.Server.Auth
 
 module Auth =
     open Microsoft.AspNetCore.Authentication

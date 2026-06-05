@@ -1,7 +1,7 @@
-namespace ElmishTodos.Todos.Store
+namespace ElmishTodos.Server.Todos.Store
 
 open System
-open ElmishTodos.Todos.Models
+open ElmishTodos.Server.Todos.Models
 
 type TodoMessage =
     private
