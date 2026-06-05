@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ElmishTodos.Client</RootNamespace>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src/App.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="5.0.0" />
+    <PackageReference Include="Fable.Elmish" Version="5.0.2" />
+    <PackageReference Include="Feliz" Version="3.3.3" />
+    <PackageReference Include="Feliz.UseElmish" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

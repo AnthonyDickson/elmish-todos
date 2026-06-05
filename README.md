@@ -18,6 +18,10 @@ This renames all namespaces, modules, project files, directories, and solution f
 
 ## Getting Started
 
+### Server
+
+From the repo root run:
+
 ```bash
 # Build
 dotnet build
@@ -30,6 +34,18 @@ dotnet fantomas .
 
 # Lint
 dotnet fsharplint lint ElmishTodos.slnx
+```
+
+### Client
+
+From inside `src/ElmishTodos.Client` run:
+
+```bash
+# Start the dev server
+dotnet fable watch --run npx vite
+
+# Build the dist bundle
+dotnet fable --run npx vite build
 ```
 
 ### Development Environment

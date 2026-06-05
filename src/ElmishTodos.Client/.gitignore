@@ -1,0 +1,5 @@
+fable_modules/
+node_modules/
+dist/
+# JavaScript built by Fable
+*.fs.js

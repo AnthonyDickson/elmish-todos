@@ -10,13 +10,13 @@ Add to the Nix flake:
 
 New npm packages (`src/ElmishTodos.Client/package.json`):
 - `vite`, `vite-plugin-fable` — dev server + bundler
-- `todomvc-app-css`, `todomvc-common` — TodoMVC styles
+- `tailwindcss`, `@tailwindcss/vite` — utility-first CSS framework
 
 New NuGet packages (in the client `.fsproj`):
-- `Fable.Core` 4.x
-- `Fable.Elmish` 4.x
-- `Fable.Elmish.React` 4.x
-- `Fable.React` 9.x
+- `Fable.Core` 5.0.0
+- `Fable.Elmish` 5.0.2
+- `Feliz` 3.3.3
+- `Feliz.UseElmish` 5.0.0
 
 ### 1b. Project Structure
 
@@ -27,14 +27,12 @@ src/ElmishTodos.Client/
 ├── vite.config.ts
 ├── public/
 │   └── index.html
-├── node_modules/           # filled by npm
-│   └── todomvc-app-css/
-│   └── todomvc-common/
 └── src/
-    ├── App.fs              # Program.mkProgram + subscriptions
+    ├── app.css             # Tailwind directives (@import "tailwindcss")
+    ├── App.fs              # React root + Elmish wiring
     ├── Types.fs            # Model, Msg, Todo, Visibility
     ├── State.fs            # init, update
-    └── View.fs             # Fable.React rendering
+    └── View.fs             # Feliz rendering (styled with Tailwind)
 ```
 
 ### 1c. Types.fs — Domain
@@ -88,34 +86,80 @@ Key update logic:
 - **ChangeVisibility**: set filter
 - No `Cmd` in Stage 1 except `Cmd.none` and `Focus`
 
-### 1e. View.fs — Fable.React rendering
+### 1e. View.fs — Feliz rendering with Tailwind CSS
 
-Match Elm TodoMVC's exact HTML structure and CSS classes:
-- `section.todoapp` — root
-  - `header.header` — `<h1>todos</h1>` + `<input.new-todo>` (autofocus, placeholder)
-  - Conditional `section.main` (visible when todos exist):
-    - `input#toggle-all.toggle-all` — master checkbox
-    - `ul.todo-list` — each `li` with classes `completed`, `editing` as needed
-      - `div.view` — `input.toggle` (checkbox) + `label` (dblclick → edit) + `button.destroy`
-      - `input.edit` — edit field (rendered when `editing = true`)
-  - Conditional `footer.footer` (visible when todos exist):
-    - `span.todo-count` — "N item(s) left"
-    - `ul.filters` — All / Active / Completed links with `selected` class
-    - `button.clear-completed` — visible when any completed
-- `footer.info` — TodoMVC info footer
+Recreate the classic TodoMVC look using Feliz components + Tailwind utility classes. Feliz uses the `Html.*` and `prop.*` module functions for a clean, type-safe API:
+
+```fsharp
+open Feliz
+
+let view (model: Model) (dispatch: Msg -> unit) =
+    Html.section [
+        prop.className "max-w-lg mx-auto mt-20 font-sans antialiased"
+        prop.children [
+            // Header
+            Html.header [
+                prop.className "header"
+                prop.children [
+                    Html.h1 [ prop.className "text-7xl font-thin text-center text-red-400"; prop.text "todos" ]
+                    Html.input [
+                        prop.className "new-todo w-full ..."
+                        prop.placeholder "What needs to be done?"
+                        prop.value model.field
+                        prop.onChange (fun value -> dispatch (UpdateField value))
+                        prop.onKeyDown (fun ev ->
+                            if ev.key = "Enter" then dispatch AddTodo)
+                    ]
+                ]
+            ]
+            // ... rest of the structure
+        ]
+    ]
+```
+
+**Structural outline** (all styled with Tailwind):
+- **Root container**: `max-w-lg mx-auto mt-20 font-sans antialiased`
+- **Header**: `<h1>` _"todos"_ in large thin red text + new-todo `<input>` (full-width, large placeholder, subtle shadow)
+- **Main section** (visible when todos exist):
+  - **Toggle-all checkbox**: positioned at the top-left of the list
+  - **Todo list item** (`<li>`):
+    - **View mode**: checkbox + label + destroy button in a horizontal row; hover reveals destroy button
+    - **Edit mode**: input replaces the label (double-click to enter)
+    - Completed items: strikethrough + muted color
+  - Conditional classes via `prop.className` with computed strings (e.g., `completed` + `editing` state)
+- **Footer** (visible when todos exist):
+  - Items-left counter → `float-left`
+  - Filter links (All / Active / Completed) → centered, bordered on selected
+  - Clear-completed button → `float-right`, visible when any completed
+- **Info footer**: _"Double-click to edit a todo"_ + attribution text
+
+Key Tailwind patterns used:
+- Layout: `flex`, `grid`, `justify-between`, `items-center`, `space-y-*`
+- Typography: `text-*`, `font-*`, `line-through`, `italic`
+- Borders & shadows: `shadow-*`, `border`, `rounded`
+- Visibility: `hidden`, `hover:*`, `group-hover:*` (destroy button)
+- States: `peer-checked:*` (strikethrough), `opacity-*`, `text-*` for active filters
 
 ### 1f. App.fs — Wiring
 
 ```fsharp
-Program.mkProgram State.init State.update View.view
-|> Program.withReactSynchronous "app"
-|> Program.run
+module App
+
+open Feliz
+open Feliz.UseElmish
+
+[<ReactComponent>]
+let TodosApp () =
+    let model, dispatch = React.useElmish (State.init, State.update, [||])
+    View.view model dispatch
+
+ReactDOM.createRoot (document.getElementById "app").render (TodosApp ())
 ```
 
 ### 1g. index.html + vite config
 
-- `index.html`: empty `<div id="app">` + links to CSS
-- `vite.config.ts`: `vite-plugin-fable` pointing at the `.fsproj`
+- `index.html`: empty `<div id="app">` + `<link>` to Tailwind-built CSS
+- `vite.config.ts`: `vite-plugin-fable` pointing at the `.fsproj` + `@tailwindcss/vite` plugin
 
 ### Stage 1 Verification
 
@@ -187,6 +231,7 @@ val deleteCompleted : unit -> JS.Promise<unit>
 | 1 | Create | `src/ElmishTodos.Client/package.json` |
 | 1 | Create | `src/ElmishTodos.Client/vite.config.ts` |
 | 1 | Create | `src/ElmishTodos.Client/public/index.html` |
+| 1 | Create | `src/ElmishTodos.Client/src/app.css` |
 | 1 | Create | `src/ElmishTodos.Client/src/Types.fs` |
 | 1 | Create | `src/ElmishTodos.Client/src/State.fs` |
 | 1 | Create | `src/ElmishTodos.Client/src/View.fs` |

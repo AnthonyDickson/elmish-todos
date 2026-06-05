@@ -18,6 +18,9 @@
               dotnet-sdk_10
               fsautocomplete
 
+              # Node
+              nodejs_24
+
               # Markdown formatting
               dprint
             ];
