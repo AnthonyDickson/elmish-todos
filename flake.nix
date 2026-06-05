@@ -21,6 +21,9 @@
               # Node
               nodejs_24
 
+              # Build tools
+              gnumake
+
               # Markdown formatting
               dprint
             ];

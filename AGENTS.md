@@ -8,18 +8,26 @@ An F# .NET 10 web API example using the Oxpecker web framework. Implements a tod
 
 ## Essential Commands
 
-```bash
-# Build
-dotnet build
+All commands run from the repo root. A `Makefile` wraps them as `make <target>`.
 
-# Run
-dotnet run --project src/ElmishTodos
+```bash
+# Build the server
+make server-build
+
+# Run the server
+make server-watch
 
 # Format code (fantomas)
-dotnet fantomas .
+make format
 
 # Lint
-dotnet fsharplint lint ElmishTodos.slnx
+make lint
+
+# Start the client dev server
+make client-watch
+
+# Build the client dist bundle
+make client-build
 ```
 
 ### Development Environment
@@ -30,40 +38,42 @@ The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), an
 nix develop   # or direnv allow if direnv is configured
 ```
 
-Local .NET tools (fantomas, fsharplint) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
+Local .NET tools (fantomas, fsharplint, fable) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
 
 ## File Structure & Compilation Order
 
 F# compiles files in order. The `.fsproj` defines this sequence — **new files must be inserted at the correct position**:
 
-Source code lives under `src/ElmishTodos/`. The solution file is `ElmishTodos.slnx` (the newer XML-based format).
+Source code lives under `src/ElmishTodos.Server/` and `src/ElmishTodos.Client`.
+The solution file is `ElmishTodos.slnx` (the newer XML-based format).
 
-| File                               | Purpose                                                  |
-| ---------------------------------- | -------------------------------------------------------- |
-| `src/ElmishTodos/Auth.fs`          | Demo bearer authentication handler                       |
-| `src/ElmishTodos/Middleware.fs`    | Shared middleware (`notFound`, `requireAuthenticated`)   |
-| `src/ElmishTodos/OpenApi.fs`       | F#-aware OpenAPI schema transformers                     |
-| `src/ElmishTodos/Program.fs`       | App composition: DI, middleware pipeline                 |
-| `src/ElmishTodos/Todos/Handlers.fs`| CRUD endpoint handlers                                   |
-| `src/ElmishTodos/Todos/Models.fs`  | Domain types (`TodoItem`) + request/error DTOs           |
-| `src/ElmishTodos/Todos/Routes.fs`  | Route definitions + OpenAPI metadata for the Todos slice |
-| `src/ElmishTodos/Todos/Store.fs`   | In-memory store via `MailboxProcessor`                   |
+| File                                       | Purpose                                                  |
+| ------------------------------------------ | -------------------------------------------------------- |
+| `src/ElmishTodos.Server/Auth.fs`           | Demo bearer authentication handler                       |
+| `src/ElmishTodos.Server/Middleware.fs`     | Shared middleware (`notFound`, `requireAuthenticated`)   |
+| `src/ElmishTodos.Server/OpenApi.fs`        | F#-aware OpenAPI schema transformers                     |
+| `src/ElmishTodos.Server/Program.fs`        | App composition: DI, middleware pipeline                 |
+| `src/ElmishTodos.Server/Todos/Handlers.fs` | CRUD endpoint handlers                                   |
+| `src/ElmishTodos.Server/Todos/Models.fs`   | Domain types (`TodoItem`) + request/error DTOs           |
+| `src/ElmishTodos.Server/Todos/Routes.fs`   | Route definitions + OpenAPI metadata for the Todos slice |
+| `src/ElmishTodos.Server/Todos/Store.fs`    | In-memory store via `MailboxProcessor`                   |
 
 The codebase follows **vertical slice architecture**. The `Todos/` directory is a self-contained feature slice owning its domain types, store, handlers, and route registration.
 
-Modules correspond to file paths relative to the project root (e.g., `Todos/Models.fs` → `module ElmishTodos.Todos.Models`). Cross-cutting concerns (`Auth`, `Middleware`, `OpenApi`) live at the project root.
+Modules correspond to file paths relative to the project root (e.g., `Todos/Models.fs` → `module ElmishTodos.Server.Todos.Models`). Cross-cutting concerns (`Auth`, `Middleware`, `OpenApi`) live at the server project root.
 
 ## Solution Structure
 
 ```
-ElmishTodos.slnx          # Solution file (XML-based .slnx format)
+ElmishTodos.slnx                     # Solution file (XML-based .slnx format)
 src/
-  ElmishTodos/            # Web API project
+  ElmishTodos.Server/                # Web API project
+  ElmishTodos.Client/                # Fable/Elmish + Vite frontend
 ```
 
 ## Architecture
 
-### Store (`src/ElmishTodos/Todos/Store.fs`)
+### Store (`src/ElmishTodos.Server/Todos/Store.fs`)
 
 An actor-based in-memory store using `MailboxProcessor` to serialize state mutations. The message DU is `private` — external code must use the module-level functions:
 
@@ -72,7 +82,7 @@ An actor-based in-memory store using `MailboxProcessor` to serialize state mutat
 - All mutations are single-threaded through the agent's mailbox
 - Async replies use `PostAndAsyncReply`; fire-and-forget uses `Post`
 
-### Handlers (`src/ElmishTodos/Todos/Handlers.fs`)
+### Handlers (`src/ElmishTodos.Server/Todos/Handlers.fs`)
 
 Endpoint handlers follow a curried pattern:
 
@@ -86,7 +96,7 @@ let getTodo (store : Store.t) (id : Guid) : EndpointHandler = ...
 
 All handlers return `EndpointHandler` (a function `HttpContext → Task`), using `task { }` computation expressions. Response writing uses `ctx.WriteJson`, status codes via `ctx.SetStatusCode`.
 
-### Middleware (`src/ElmishTodos/Middleware.fs`)
+### Middleware (`src/ElmishTodos.Server/Middleware.fs`)
 
 Shared middleware extracted from the handlers layer:
 
@@ -95,7 +105,7 @@ Shared middleware extracted from the handlers layer:
 
 Both are imported by slice handlers that need them.
 
-### Routes (`src/ElmishTodos/Todos/Routes.fs`)
+### Routes (`src/ElmishTodos.Server/Todos/Routes.fs`)
 
 Each vertical slice owns its route definitions and OpenAPI metadata in a single file. The `endpoints` function returns an `Endpoint list` passed to `app.UseOxpecker`. Routes are organized by HTTP method using Oxpecker's `GET`, `POST`, `PUT`, `DELETE` list builders. Route patterns:
 
@@ -105,7 +115,7 @@ Each vertical slice owns its route definitions and OpenAPI metadata in a single 
 
 OpenAPI metadata is attached inline via `addOpenApi` with `OpenApiConfig`, specifying request/response body types and operation-level config (summary, description, security requirements).
 
-### Auth (`src/ElmishTodos/Auth.fs`)
+### Auth (`src/ElmishTodos.Server/Auth.fs`)
 
 A custom `AuthenticationHandler` that accepts a hardcoded bearer token. Constants:
 
@@ -114,7 +124,7 @@ A custom `AuthenticationHandler` that accepts a hardcoded bearer token. Constant
 
 Valid request: `Authorization: Bearer demo-token`
 
-### OpenAPI (`src/ElmishTodos/OpenApi.fs`)
+### OpenAPI (`src/ElmishTodos.Server/OpenApi.fs`)
 
 Contains `FSharpRecordSchemaTransformer` and references `FSharpOptionSchemaTransformer` (from the Oxpecker.OpenApi NuGet package). The record transformer marks non-option fields as required in the generated schema.
 
@@ -145,7 +155,7 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 
 - **Lockfile is enforced**: `RestorePackagesWithLockFile` is true in the `.fsproj`. After adding/updating NuGet packages, run `dotnet restore --lock-file-mode update` to regenerate `packages.lock.json`.
 - **Compilation order matters in .fsproj**: adding a new `.fs` file requires inserting `<Compile Include="NewFile.fs" />` at the correct position before any file that depends on it.
-- **No test project exists yet** — add one under `src/ElmishTodos.Tests/` to keep the multi-project convention.
-- **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the project's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
+- **No test project exists yet** — add one under `src/ElmishTodos.Server.Tests/` to keep the multi-project convention.
+- **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the server's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
 - **`TodoMessage` DU is `private`** — you cannot construct these messages directly; use the module functions on `Store`.
 - **Store is ephemeral** — all data is lost on restart (in-memory `Map`).

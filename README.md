@@ -18,35 +18,29 @@ This renames all namespaces, modules, project files, directories, and solution f
 
 ## Getting Started
 
-### Server
-
-From the repo root run:
+All commands run from the repo root.
 
 ```bash
-# Build
-dotnet build
+# Build the server
+make server-build
 
-# Run
-dotnet run --project src/ElmishTodos
+# Run the server
+make server-watch
 
 # Format code (fantomas)
-dotnet fantomas .
+make format
 
 # Lint
-dotnet fsharplint lint ElmishTodos.slnx
+make lint
+
+# Start the client dev server
+make client-watch
+
+# Build the client dist bundle
+make client-build
 ```
 
-### Client
-
-From inside `src/ElmishTodos.Client` run:
-
-```bash
-# Start the dev server
-dotnet fable watch --run npx vite
-
-# Build the dist bundle
-dotnet fable --run npx vite build
-```
+A `make` (or `make build`) runs the default `build` target.
 
 ### Development Environment
 
@@ -56,4 +50,4 @@ The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), an
 nix develop   # or direnv allow if direnv is configured
 ```
 
-Local .NET tools (fantomas, fsharplint) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
+Local .NET tools (fantomas, fsharplint, fable) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
