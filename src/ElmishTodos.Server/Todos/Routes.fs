@@ -9,7 +9,6 @@ module TodoRoutes =
     open ElmishTodos.Server.Todos.Handlers
     open ElmishTodos.Server.Todos.Models
     open ElmishTodos.Server.Todos.Store
-    open System.Collections.Generic
     open System.Threading.Tasks
 
     let private bearerRequirement () : OpenApiSecurityRequirement =
