@@ -13,7 +13,7 @@ lint:
 	dotnet fsharplint lint ElmishTodos.slnx
 
 client-watch:
-	dotnet fable watch . --cwd src/ElmishTodos.Client --run npx vite
+	dotnet fable watch . --cwd src/ElmishTodos.Client --outDir build --run npx vite
 
 client-build:
-	dotnet fable . --cwd src/ElmishTodos.Client --run npx vite build
+	dotnet fable . --cwd src/ElmishTodos.Client --outDir build --run npx vite build

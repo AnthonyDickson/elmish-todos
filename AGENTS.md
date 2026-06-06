@@ -158,6 +158,7 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 - **Compilation order matters in .fsproj**: new `.fs` files must be `<Compile Include>`'d in dependency order.
 - **Client requires `npm install`** in `src/ElmishTodos.Client/` before `make client-watch` or `make client-build`.
 - **Fable compiles F# to JS** — `make client-watch` uses `dotnet fable watch` with incremental compilation; `make client-build` produces a production bundle via `vite build`.
+- **Fable outputs to `build/`** via `--outDir build`. When using `--outDir`, Fable 5 drops the `.fs` infix (e.g., `src/App.fs` → `build/src/App.js`, not `App.fs.js`). Without `--outDir`, the `.fs` infix is kept. Don't mix the two naming patterns.
 - **No test project exists yet** — add one under `src/ElmishTodos.Server.Tests/` or `src/ElmishTodos.Client.Tests/` to keep the multi-project convention.
 - **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the server's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
 - **`TodoMessage` DU is `private`** — you cannot construct these messages directly; use the module functions on `Store`.
