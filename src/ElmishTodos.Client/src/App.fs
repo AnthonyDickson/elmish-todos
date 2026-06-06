@@ -19,10 +19,35 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | Foo -> { Model.Title = "Foo, Bar!" }, Cmd.none
 
 let view (model : Model) (dispatch : Msg -> unit) =
-    Html.h1 [
-        prop.text model.Title
-        prop.className "text-3xl font-bold underline text-red-500"
-        prop.onClick (fun _ -> dispatch Foo)
+    Html.main [
+        prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
+        prop.children (
+            Html.header [
+                Html.h1 [
+                    prop.text "todos"
+                    prop.className "text-8xl text-rose-300/30 text-center m-5"
+                    prop.onClick (fun _ -> dispatch Foo)
+                ]
+                Html.input [
+                    prop.type' "text"
+                    prop.autoFocus true
+                    prop.placeholder "What needs to be done?"
+                    prop.classes [
+                        "text-gray-600"
+                        "bg-gray-50"
+                        "drop-shadow-md"
+                        "focus-visible:outline-none"
+                        "py-5"
+                        "px-15"
+                        "min-w-lg"
+                        "text-xl"
+                        "placeholder:text-xl"
+                        "placeholder:text-gray-300"
+                        "placeholder:italic"
+                    ]
+                ]
+            ]
+        )
     ]
 
 [<ReactComponent>]
