@@ -1,20 +1,6 @@
-# Oxpecker Todos API Example
+# Elmish Todos
 
-This repo demonstrates a simple Todo API written in Oxpecker.
-The todos are stored in a in-memory mapping that uses an agent (`MailboxProcessor`) for synchronising state updates.
-OpenAPI docs are generated semi-automatically and then rendered with Scalar.
-
-## Using This Template
-
-To create a new project from this template, clone the repo and run the setup script:
-
-```bash
-git clone https://github.com/example/oxpecker my-project
-cd my-project
-./setup.sh MyProject
-```
-
-This renames all namespaces, modules, project files, directories, and solution file from `ElmishTodos` to `MyProject`.
+A port of [TodoMVC in Elm](https://github.com/evancz/elm-todomvc/) in F# using Elmish and Feliz.
 
 ## Getting Started
 
