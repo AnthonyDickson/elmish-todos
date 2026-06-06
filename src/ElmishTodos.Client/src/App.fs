@@ -25,10 +25,16 @@ module Todo =
             Completed = not todo.Completed
     }
 
+type Visibility =
+    | All
+    | Active
+    | Completed
+
 type Model = {
     NewTodo : string
     NextId : int
     Todos : List<Todo>
+    Visibility : Visibility
 }
 
 type Msg =
@@ -37,13 +43,14 @@ type Msg =
     | UserToggledCompletedStatus of id : int
     | UserDeletedTodo of id : int
     | UserDeletedCompletedTodos
+    | UserChangedVisibility of Visibility
 
 let init () : Model * Cmd<Msg> =
     let model = {
         NewTodo = ""
         NextId = 2
         Todos = [ Todo.create 0 "Learn Elm" |> Todo.complete; Todo.create 1 "Learn F#" ]
-
+        Visibility = Visibility.All
     }
 
     let cmd = Cmd.ofEffect (fun _ -> document.title <- "Elmish TodoMVC")
@@ -54,9 +61,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
     | UserSubmittedNewTodo title ->
         {
-            NewTodo = ""
-            NextId = model.NextId + 1
-            Todos = model.Todos @ [ Todo.create model.NextId model.NewTodo ]
+            model with
+                NewTodo = ""
+                NextId = model.NextId + 1
+                Todos = model.Todos @ [ Todo.create model.NextId model.NewTodo ]
         },
         Cmd.none
     | UserToggledCompletedStatus id ->
@@ -70,14 +78,17 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UserDeletedCompletedTodos ->
         let todos = List.filter (fun todo -> not todo.Completed) model.Todos
         { model with Todos = todos }, Cmd.none
+    | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
 
 let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
     Html.div [
         prop.classes [
             "bg-gray-50"
             "py-5"
-            "min-w-lg"
+            "min-w-xl"
             "text-2xl"
+            "border-t-1"
+            "border-gray-200"
             "flex"
             "items-center"
             "group"
@@ -113,6 +124,23 @@ let view (model : Model) (dispatch : Msg -> unit) =
     let completedCount =
         List.sumBy (fun todo -> if todo.Completed then 1 else 0) model.Todos
 
+    let filteredTodos =
+        match model.Visibility with
+        | Visibility.All -> model.Todos
+        | Visibility.Active -> List.filter (fun todo -> not todo.Completed) model.Todos
+        | Visibility.Completed -> List.filter (fun todo -> todo.Completed) model.Todos
+
+    let visibilityClasses visibility =
+        let baseClasses = [ "p-1"; "rounded-sm"; "border-1" ]
+
+        if visibility = model.Visibility then
+            "border-rose-300/40" :: "border-solid" :: baseClasses
+        else
+            "border-rose-300/0"
+            :: "hover:border-rose-300/20"
+            :: "hover::border-solid"
+            :: baseClasses
+
     Html.div [
         prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
         prop.children (
@@ -131,11 +159,11 @@ let view (model : Model) (dispatch : Msg -> unit) =
                             "text-gray-600"
                             "text-2xl"
                             "bg-gray-50"
-                            "drop-shadow-md"
+                            "drop-shadow-sm"
                             "focus-visible:outline-none"
                             "py-5"
                             "px-15"
-                            "min-w-lg"
+                            "min-w-xl"
                             "placeholder:text-2xl"
                             "placeholder:text-gray-300"
                             "placeholder:italic"
@@ -147,8 +175,8 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     ]
                 ]
                 Html.section [
-                    prop.className "drop-shadow-md"
-                    prop.children (List.map (todoListItem dispatch) model.Todos)
+                    prop.className "drop-shadow-sm"
+                    prop.children (List.map (todoListItem dispatch) filteredTodos)
                 ]
                 if todoCount > 0 then
                     Html.footer [
@@ -156,7 +184,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                             "text-gray-500"
                             "text-sm"
                             "bg-gray-50"
-                            "drop-shadow-md"
+                            "drop-shadow-sm"
                             "py-2"
                             "px-5"
                             "min-w-lg"
@@ -167,12 +195,33 @@ let view (model : Model) (dispatch : Msg -> unit) =
                         ]
                         prop.children [
                             Html.p [
+                                prop.className "py-2"
                                 prop.text (
                                     if todoCount = 1 then
                                         $"{todoCount} item left"
                                     else
                                         $"{todoCount} items left"
                                 )
+                            ]
+                            Html.div [
+                                prop.className "flex gap-2"
+                                prop.children [
+                                    Html.button [
+                                        prop.text "All"
+                                        prop.classes (visibilityClasses Visibility.All)
+                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.All))
+                                    ]
+                                    Html.button [
+                                        prop.text "Active"
+                                        prop.classes (visibilityClasses Visibility.Active)
+                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.Active))
+                                    ]
+                                    Html.button [
+                                        prop.text "Completed"
+                                        prop.classes (visibilityClasses Visibility.Completed)
+                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.Completed))
+                                    ]
+                                ]
                             ]
                             Html.button [
                                 prop.text (
