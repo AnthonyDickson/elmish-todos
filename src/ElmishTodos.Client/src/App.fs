@@ -1,19 +1,23 @@
 module App
 
+open System
+
 open Browser.Dom
+open Elmish
 open Feliz
 open Feliz.UseElmish
-open Elmish
 
+// TODO: Create shared assembly for types/code used across both client and server.
+// TODO: Use shared Todo model so that Client and Server are synced
 type Todo = {
-    Id : int
+    Id : Guid
     Title : string
     Completed : bool
 }
 
 module Todo =
-    let create id title = {
-        Id = id
+    let create title = {
+        Id = Guid.CreateVersion7 ()
         Title = title
         Completed = false
     }
@@ -32,7 +36,6 @@ type Visibility =
 
 type Model = {
     NewTodo : string
-    NextId : int
     Todos : List<Todo>
     Visibility : Visibility
 }
@@ -40,17 +43,16 @@ type Model = {
 type Msg =
     | UserChangedNewTodo of string
     | UserSubmittedNewTodo of string
-    | UserToggledCompletedStatus of id : int
-    | UserDeletedTodo of id : int
+    | UserToggledCompletedStatus of Guid
+    | UserDeletedTodo of Guid
     | UserDeletedCompletedTodos
     | UserChangedVisibility of Visibility
 
 let init () : Model * Cmd<Msg> =
     let model = {
         NewTodo = ""
-        NextId = 2
-        Todos = [ Todo.create 0 "Learn Elm" |> Todo.complete; Todo.create 1 "Learn F#" ]
-        Visibility = Visibility.All
+        Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
+        Visibility = All
     }
 
     let cmd = Cmd.ofEffect (fun _ -> document.title <- "Elmish TodoMVC")
@@ -63,8 +65,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         {
             model with
                 NewTodo = ""
-                NextId = model.NextId + 1
-                Todos = model.Todos @ [ Todo.create model.NextId model.NewTodo ]
+                Todos = model.Todos @ [ Todo.create model.NewTodo ]
         },
         Cmd.none
     | UserToggledCompletedStatus id ->
@@ -81,7 +82,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
 
 let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
-    Html.div [
+    Html.li [
         prop.classes [
             "bg-gray-50"
             "py-5"
@@ -126,9 +127,9 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
     let filteredTodos =
         match model.Visibility with
-        | Visibility.All -> model.Todos
-        | Visibility.Active -> List.filter (fun todo -> not todo.Completed) model.Todos
-        | Visibility.Completed -> List.filter (fun todo -> todo.Completed) model.Todos
+        | All -> model.Todos
+        | Active -> List.filter (fun todo -> not todo.Completed) model.Todos
+        | Completed -> List.filter (fun todo -> todo.Completed) model.Todos
 
     let visibilityClasses visibility =
         let baseClasses = [ "p-1"; "rounded-sm"; "border-1" ]
@@ -174,7 +175,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                 dispatch (UserSubmittedNewTodo model.NewTodo))
                     ]
                 ]
-                Html.section [
+                Html.ol [
                     prop.className "drop-shadow-sm"
                     prop.children (List.map (todoListItem dispatch) filteredTodos)
                 ]
@@ -197,28 +198,30 @@ let view (model : Model) (dispatch : Msg -> unit) =
                             Html.p [
                                 prop.className "py-2"
                                 prop.text (
+                                    // fsharplint:disable-next-line Hints
                                     if todoCount = 1 then
                                         $"{todoCount} item left"
                                     else
                                         $"{todoCount} items left"
                                 )
                             ]
+                            // TODO: These should be links, needs routing to be implemented
                             Html.div [
                                 prop.className "flex gap-2"
                                 prop.children [
                                     Html.button [
                                         prop.text "All"
-                                        prop.classes (visibilityClasses Visibility.All)
-                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.All))
+                                        prop.classes (visibilityClasses All)
+                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility All))
                                     ]
                                     Html.button [
                                         prop.text "Active"
-                                        prop.classes (visibilityClasses Visibility.Active)
-                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.Active))
+                                        prop.classes (visibilityClasses Active)
+                                        prop.onClick (fun _ -> dispatch (UserChangedVisibility Active))
                                     ]
                                     Html.button [
                                         prop.text "Completed"
-                                        prop.classes (visibilityClasses Visibility.Completed)
+                                        prop.classes (visibilityClasses Completed)
                                         prop.onClick (fun _ -> dispatch (UserChangedVisibility Visibility.Completed))
                                     ]
                                 ]
