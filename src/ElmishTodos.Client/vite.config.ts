@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
       watch: {
           ignored: [
-              "**/*.fs" // Don't watch F# files
+              "**/*.fsproj", // Don't watch project files
           ]
       }
   },
