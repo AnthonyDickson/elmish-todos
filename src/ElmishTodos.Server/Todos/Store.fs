@@ -8,7 +8,7 @@ type TodoMessage =
     | GetAll of AsyncReplyChannel<TodoItem list>
     | Get of Guid * AsyncReplyChannel<TodoItem option>
     | Upsert of TodoItem
-    | Update of Guid * title : string * completed : bool * AsyncReplyChannel<TodoItem option>
+    | Update of id: Guid * title : string * completed : bool * reply: AsyncReplyChannel<TodoItem option>
     | Delete of Guid * AsyncReplyChannel<bool>
 
 type TodoStore = MailboxProcessor<TodoMessage>
@@ -29,12 +29,12 @@ module TodoStore =
                         reply.Reply (state.TryFind todoId)
                         return! loop state
                     | Upsert todoItem -> return! loop <| state.Add (todoItem.Id, todoItem)
-                    | Update (id, text, completed, reply) ->
+                    | Update (id = id; title = title; completed = completed; reply = reply;) ->
                         match state.TryFind id with
                         | Some todo ->
                             let updated = {
                                 todo with
-                                    Title = text
+                                    Title = title
                                     Completed = completed
                             }
 
