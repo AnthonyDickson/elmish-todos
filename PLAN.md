@@ -165,6 +165,8 @@ ReactDOM.createRoot (document.getElementById "app").render (TodosApp ())
 
 `npm run dev` → opens browser → full TodoMVC works entirely client-side (add, edit, toggle, filter, clear completed, items-left counter, toggle-all). **No backend involved.**
 
+Verify against <https://github.com/tastejs/todomvc/blob/master/app-spec.md>
+
 ---
 
 ## Stage 2: API Integration

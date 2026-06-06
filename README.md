@@ -1,6 +1,7 @@
 # Elmish Todos
 
-A port of [TodoMVC in Elm](https://github.com/evancz/elm-todomvc/) in F# using Elmish and Feliz.
+A port of [TodoMVC in Elm](https://github.com/evancz/elm-todomvc/) (which is based on
+[TodoMVC](https://github.com/tastejs/todomvc)) in F# using Elmish and Feliz.
 
 ## Getting Started
 
