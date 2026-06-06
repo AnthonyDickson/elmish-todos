@@ -104,6 +104,8 @@ let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
     ]
 
 let view (model : Model) (dispatch : Msg -> unit) =
+    let todoCount = List.length model.Todos
+
     Html.div [
         prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
         prop.children (
@@ -120,13 +122,13 @@ let view (model : Model) (dispatch : Msg -> unit) =
                         prop.placeholder "What needs to be done?"
                         prop.classes [
                             "text-gray-600"
+                            "text-2xl"
                             "bg-gray-50"
                             "drop-shadow-md"
                             "focus-visible:outline-none"
                             "py-5"
                             "px-15"
                             "min-w-lg"
-                            "text-2xl"
                             "placeholder:text-2xl"
                             "placeholder:text-gray-300"
                             "placeholder:italic"
@@ -140,6 +142,29 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 Html.section [
                     prop.className "drop-shadow-md"
                     prop.children (List.map (todoListItem dispatch) model.Todos)
+                ]
+                Html.footer [
+                    prop.classes [
+                        "text-gray-500"
+                        "text-sm"
+                        "bg-gray-50"
+                        "drop-shadow-md"
+                        "py-2"
+                        "px-5"
+                        "min-w-lg"
+                        "border-t-1"
+                        "border-gray-200"
+                    ]
+                    prop.children [
+                        Html.p [
+                            prop.text (
+                                if todoCount = 1 then
+                                    $"{todoCount} item left"
+                                else
+                                    $"{todoCount} items left"
+                            )
+                        ]
+                    ]
                 ]
             ]
         )
