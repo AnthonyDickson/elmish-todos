@@ -36,6 +36,7 @@ type Msg =
     | UserSubmittedNewTodo of string
     | UserToggledCompletedStatus of id : int
     | UserDeletedTodo of id : int
+    | UserDeletedCompletedTodos
 
 let init () : Model * Cmd<Msg> =
     let model = {
@@ -65,6 +66,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Todos = todos }, Cmd.none
     | UserDeletedTodo id ->
         let todos = List.filter (fun todo -> todo.Id <> id) model.Todos
+        { model with Todos = todos }, Cmd.none
+    | UserDeletedCompletedTodos ->
+        let todos = List.filter (fun todo -> not todo.Completed) model.Todos
         { model with Todos = todos }, Cmd.none
 
 let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
@@ -106,6 +110,9 @@ let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
 let view (model : Model) (dispatch : Msg -> unit) =
     let todoCount = List.length model.Todos
 
+    let completedCount =
+        List.sumBy (fun todo -> if todo.Completed then 1 else 0) model.Todos
+
     Html.div [
         prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
         prop.children (
@@ -143,29 +150,44 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     prop.className "drop-shadow-md"
                     prop.children (List.map (todoListItem dispatch) model.Todos)
                 ]
-                Html.footer [
-                    prop.classes [
-                        "text-gray-500"
-                        "text-sm"
-                        "bg-gray-50"
-                        "drop-shadow-md"
-                        "py-2"
-                        "px-5"
-                        "min-w-lg"
-                        "border-t-1"
-                        "border-gray-200"
-                    ]
-                    prop.children [
-                        Html.p [
-                            prop.text (
-                                if todoCount = 1 then
-                                    $"{todoCount} item left"
-                                else
-                                    $"{todoCount} items left"
-                            )
+                if todoCount > 0 then
+                    Html.footer [
+                        prop.classes [
+                            "text-gray-500"
+                            "text-sm"
+                            "bg-gray-50"
+                            "drop-shadow-md"
+                            "py-2"
+                            "px-5"
+                            "min-w-lg"
+                            "border-t-1"
+                            "border-gray-200"
+                            "flex"
+                            "justify-between"
+                        ]
+                        prop.children [
+                            Html.p [
+                                prop.text (
+                                    if todoCount = 1 then
+                                        $"{todoCount} item left"
+                                    else
+                                        $"{todoCount} items left"
+                                )
+                            ]
+                            Html.button [
+                                prop.text (
+                                    if completedCount > 0 then
+                                        $"Clear completed ({completedCount})"
+                                    else
+                                        ""
+                                )
+                                prop.className "hover:underline"
+                                prop.onClick (fun _ -> dispatch UserDeletedCompletedTodos)
+                            ]
                         ]
                     ]
-                ]
+                else
+                    Html.none
             ]
         )
     ]
