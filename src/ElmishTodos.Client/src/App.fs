@@ -10,8 +10,9 @@ type Model = { Title : string }
 type Msg = | Foo
 
 let init () =
-    document.title <- "Elmish Todos"
-    { Model.Title = "Hello, Feliz!" }, Cmd.none
+    let model = { Model.Title = "Hello, Feliz!" }
+    let cmd = Cmd.ofEffect (fun _ -> document.title <- "Elmish TodoMVC")
+    model, cmd
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
