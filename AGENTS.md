@@ -1,10 +1,8 @@
 # AGENTS.md
 
-> **Template setup:** run `./setup.sh <ProjectName>` to rename the project after cloning.
-
 ## Project Overview
 
-An F# .NET 10 web API example using the Oxpecker web framework. Implements a todo CRUD API with in-memory storage, bearer auth, and OpenAPI documentation rendered via Scalar.
+A full-stack F# .NET 10 todo app. The backend (`ElmishTodos.Server`) is a web API using Oxpecker with in-memory storage, bearer auth, and OpenAPI docs rendered via Scalar. The frontend (`ElmishTodos.Client`) is an Elmish (MVU) SPA compiled to JS via Fable, styled with Tailwind CSS, and bundled with Vite.
 
 ## Essential Commands
 
@@ -32,7 +30,7 @@ make client-build
 
 ### Development Environment
 
-The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), and `dprint` (markdown formatting):
+The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), `nodejs_24`, `gnumake`, and `dprint` (markdown formatting):
 
 ```bash
 nix develop   # or direnv allow if direnv is configured
@@ -40,27 +38,30 @@ nix develop   # or direnv allow if direnv is configured
 
 Local .NET tools (fantomas, fsharplint, fable) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
 
+Before running client commands, install npm dependencies:
+
+```bash
+cd src/ElmishTodos.Client && npm install
+```
+
 ## File Structure & Compilation Order
 
-F# compiles files in order. The `.fsproj` defines this sequence — **new files must be inserted at the correct position**:
+F# compiles files in order. The `.fsproj` defines this sequence — **new files must be inserted at the correct position** before files that depend on them.
 
-Source code lives under `src/ElmishTodos.Server/` and `src/ElmishTodos.Client`.
 The solution file is `ElmishTodos.slnx` (the newer XML-based format).
 
-| File                                       | Purpose                                                  |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `src/ElmishTodos.Server/Auth.fs`           | Demo bearer authentication handler                       |
-| `src/ElmishTodos.Server/Middleware.fs`     | Shared middleware (`notFound`, `requireAuthenticated`)   |
-| `src/ElmishTodos.Server/OpenApi.fs`        | F#-aware OpenAPI schema transformers                     |
-| `src/ElmishTodos.Server/Program.fs`        | App composition: DI, middleware pipeline                 |
-| `src/ElmishTodos.Server/Todos/Handlers.fs` | CRUD endpoint handlers                                   |
-| `src/ElmishTodos.Server/Todos/Models.fs`   | Domain types (`TodoItem`) + request/error DTOs           |
-| `src/ElmishTodos.Server/Todos/Routes.fs`   | Route definitions + OpenAPI metadata for the Todos slice |
-| `src/ElmishTodos.Server/Todos/Store.fs`    | In-memory store via `MailboxProcessor`                   |
+### Server (`src/ElmishTodos.Server/`)
 
-The codebase follows **vertical slice architecture**. The `Todos/` directory is a self-contained feature slice owning its domain types, store, handlers, and route registration.
+The server follows **vertical slice architecture**: the `Todos/` directory is a self-contained feature slice. Cross-cutting concerns (`Auth`, `Middleware`, `OpenApi`) live at the project root. Module paths mirror file paths (e.g., `Todos/Models.fs` → `module ElmishTodos.Server.Todos.Models`).
 
-Modules correspond to file paths relative to the project root (e.g., `Todos/Models.fs` → `module ElmishTodos.Server.Todos.Models`). Cross-cutting concerns (`Auth`, `Middleware`, `OpenApi`) live at the server project root.
+### Client (`src/ElmishTodos.Client/`)
+
+The client uses the Elmish (MVU) pattern compiled to JS via Fable:
+
+- `src/App.fs` — Elmish `Model`/`Msg`/`init`/`update`/`view` + React root
+- `src/app.css` — Tailwind CSS entry point
+- `vite.config.ts` — Vite bundler config with the Tailwind plugin
+- `package.json` — npm dependencies (React, Vite, Tailwind)
 
 ## Solution Structure
 
@@ -153,9 +154,11 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 
 ## Gotchas
 
-- **Lockfile is enforced**: `RestorePackagesWithLockFile` is true in the `.fsproj`. After adding/updating NuGet packages, run `dotnet restore --lock-file-mode update` to regenerate `packages.lock.json`.
-- **Compilation order matters in .fsproj**: adding a new `.fs` file requires inserting `<Compile Include="NewFile.fs" />` at the correct position before any file that depends on it.
-- **No test project exists yet** — add one under `src/ElmishTodos.Server.Tests/` to keep the multi-project convention.
+- **Lockfile is enforced**: `RestorePackagesWithLockFile` is true in both `.fsproj` files. After adding/updating NuGet packages, run `dotnet restore --lock-file-mode update` to regenerate `packages.lock.json`.
+- **Compilation order matters in .fsproj**: new `.fs` files must be `<Compile Include>`'d in dependency order.
+- **Client requires `npm install`** in `src/ElmishTodos.Client/` before `make client-watch` or `make client-build`.
+- **Fable compiles F# to JS** — `make client-watch` uses `dotnet fable watch` with incremental compilation; `make client-build` produces a production bundle via `vite build`.
+- **No test project exists yet** — add one under `src/ElmishTodos.Server.Tests/` or `src/ElmishTodos.Client.Tests/` to keep the multi-project convention.
 - **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the server's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
 - **`TodoMessage` DU is `private`** — you cannot construct these messages directly; use the module functions on `Store`.
 - **Store is ephemeral** — all data is lost on restart (in-memory `Map`).
