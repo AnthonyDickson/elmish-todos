@@ -35,6 +35,7 @@ type Msg =
     | UserChangedNewTodo of string
     | UserSubmittedNewTodo of string
     | UserToggledCompletedStatus of id : int
+    | UserDeletedTodo of id : int
 
 let init () : Model * Cmd<Msg> =
     let model = {
@@ -62,17 +63,20 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             List.map (fun todo -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos
 
         { model with Todos = todos }, Cmd.none
+    | UserDeletedTodo id ->
+        let todos = List.filter (fun todo -> todo.Id <> id) model.Todos
+        { model with Todos = todos }, Cmd.none
 
 let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
     Html.div [
         prop.classes [
             "bg-gray-50"
             "py-5"
-            "pr-15"
             "min-w-lg"
             "text-2xl"
             "flex"
             "items-center"
+            "group"
         ]
         prop.key todo.Id
         prop.children [
@@ -90,6 +94,11 @@ let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
                     else
                         "text-gray-600"
                 )
+            ]
+            Html.button [
+                prop.text "x"
+                prop.className "ml-auto mx-5 w-5 text-red-400/0 group-hover:text-red-400"
+                prop.onClick (fun _ -> dispatch (UserDeletedTodo todo.Id))
             ]
         ]
     ]
