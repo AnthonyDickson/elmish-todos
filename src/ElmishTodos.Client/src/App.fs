@@ -9,6 +9,7 @@ type Todo = { Title : string; Completed : bool }
 
 module Todo =
     let create title = { Title = title; Completed = false }
+    let complete todo = { todo with Completed = true }
 
 type Model = { NewTodo : string; Todos : List<Todo> }
 
@@ -20,7 +21,7 @@ let init () : Model * Cmd<Msg> =
 #if DEBUG
     let model = {
         NewTodo = ""
-        Todos = [ Todo.create "Learn Elm" ]
+        Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
     }
 #else
     let model = { NewTodo = ""; Todos = [] }
@@ -40,10 +41,16 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         Cmd.none
 
 let todoListItem todo =
-    Html.p [
-        prop.text todo.Title
-        prop.classes [ "text-gray-600"; "bg-gray-50"; "py-5"; "px-15"; "min-w-lg"; "text-2xl" ]
-    ]
+    let classes = [ "bg-gray-50"; "py-5"; "px-15"; "min-w-lg"; "text-2xl" ]
+
+    let classes =
+        if todo.Completed then
+            "line-through" :: "text-gray-300" :: classes
+        else
+            "text-gray-600" :: classes
+
+
+    Html.p [ prop.text todo.Title; prop.classes classes ]
 
 let view (model : Model) (dispatch : Msg -> unit) =
     Html.div [
