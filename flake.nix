@@ -16,7 +16,6 @@
             buildInputs = with pkgs; [
               # .NET / F#
               dotnet-sdk_10
-              fsautocomplete
 
               # Node
               nodejs_24
@@ -33,7 +32,7 @@
               echo "  dotnet $(dotnet --version)"
 
               # Restore local dotnet tools (FAKE, Femto, etc.)
-              if [ -f .config/dotnet-tools.json ]; then
+              if [ -f dotnet-tools.json ]; then
                 dotnet tool restore
               fi
             '';

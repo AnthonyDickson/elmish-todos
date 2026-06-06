@@ -1,0 +1,10 @@
+[[language]]
+name = "fsharp"
+language-servers = ["fsharp-ls"]
+
+[language-server.fsharp-ls]
+command = "dotnet"
+args = ["fsautocomplete", "--adaptive-lsp-server-enabled"]
+
+[language-server.fsharp-ls.config]
+AutomaticWorkspaceInit = true
