@@ -5,27 +5,44 @@ open Feliz
 open Feliz.UseElmish
 open Elmish
 
-type Todo = { Title : string; Completed : bool }
+type Todo = {
+    Id : int
+    Title : string
+    Completed : bool
+}
 
 module Todo =
-    let create title = { Title = title; Completed = false }
+    let create id title = {
+        Id = id
+        Title = title
+        Completed = false
+    }
+
     let complete todo = { todo with Completed = true }
 
-type Model = { NewTodo : string; Todos : List<Todo> }
+    let toggleComplete todo = {
+        todo with
+            Completed = not todo.Completed
+    }
+
+type Model = {
+    NewTodo : string
+    NextId : int
+    Todos : List<Todo>
+}
 
 type Msg =
     | UserChangedNewTodo of string
     | UserSubmittedNewTodo of string
+    | UserToggledCompletedStatus of id : int
 
 let init () : Model * Cmd<Msg> =
-#if DEBUG
     let model = {
         NewTodo = ""
-        Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
+        NextId = 2
+        Todos = [ Todo.create 0 "Learn Elm" |> Todo.complete; Todo.create 1 "Learn F#" ]
+
     }
-#else
-    let model = { NewTodo = ""; Todos = [] }
-#endif
 
     let cmd = Cmd.ofEffect (fun _ -> document.title <- "Elmish TodoMVC")
     model, cmd
@@ -36,21 +53,46 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UserSubmittedNewTodo title ->
         {
             NewTodo = ""
-            Todos = model.Todos @ [ Todo.create model.NewTodo ]
+            NextId = model.NextId + 1
+            Todos = model.Todos @ [ Todo.create model.NextId model.NewTodo ]
         },
         Cmd.none
+    | UserToggledCompletedStatus id ->
+        let todos =
+            List.map (fun todo -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos
 
-let todoListItem todo =
-    let classes = [ "bg-gray-50"; "py-5"; "px-15"; "min-w-lg"; "text-2xl" ]
+        { model with Todos = todos }, Cmd.none
 
-    let classes =
-        if todo.Completed then
-            "line-through" :: "text-gray-300" :: classes
-        else
-            "text-gray-600" :: classes
-
-
-    Html.p [ prop.text todo.Title; prop.classes classes ]
+let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
+    Html.div [
+        prop.classes [
+            "bg-gray-50"
+            "py-5"
+            "pr-15"
+            "min-w-lg"
+            "text-2xl"
+            "flex"
+            "items-center"
+        ]
+        prop.key todo.Id
+        prop.children [
+            Html.input [
+                prop.type' "checkbox"
+                prop.className "w-5 mx-5"
+                prop.isChecked todo.Completed
+                prop.onCheckedChange (fun e -> dispatch (UserToggledCompletedStatus todo.Id))
+            ]
+            Html.p [
+                prop.text todo.Title
+                prop.className (
+                    if todo.Completed then
+                        "line-through text-gray-300"
+                    else
+                        "text-gray-600"
+                )
+            ]
+        ]
+    ]
 
 let view (model : Model) (dispatch : Msg -> unit) =
     Html.div [
@@ -88,7 +130,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 ]
                 Html.section [
                     prop.className "drop-shadow-md"
-                    prop.children (List.map todoListItem model.Todos)
+                    prop.children (List.map (todoListItem dispatch) model.Todos)
                 ]
             ]
         )
