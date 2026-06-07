@@ -8,13 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Todos/Models.fs" />
-    <Compile Include="Todos/Store.fs" />
     <Compile Include="Auth.fs" />
+    <Compile Include="ApiError.fs" />
     <Compile Include="Middleware.fs" />
-    <Compile Include="Todos/Handlers.fs" />
     <Compile Include="OpenApi.fs" />
-    <Compile Include="Todos/Routes.fs" />
+    <Compile Include="Todos.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

@@ -1,18 +1,20 @@
 module ElmishTodos.Server.Program
 
+open System.Collections.Generic
+open System.Threading.Tasks
+
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
+open Scalar.AspNetCore
+
 open ElmishTodos.Server.Auth
 open ElmishTodos.Server.OpenApi
-open ElmishTodos.Server.Todos.Routes
-open ElmishTodos.Server.Todos.Store
-open Scalar.AspNetCore
-open System.Collections.Generic
-open System.Threading.Tasks
+open ElmishTodos.Server.Todos
+
 
 [<EntryPoint>]
 let main (args : string array) : int =
@@ -54,17 +56,17 @@ let main (args : string array) : int =
 
     app.MapScalarApiReference (fun opts ->
         opts
-            .WithTitle("Oxpecker Todo API")
+            .WithTitle("ElmishTodos API")
             .WithTheme(ScalarTheme.DeepSpace)
-            .WithDefaultHttpClient (ScalarTarget.CSharp, ScalarClient.HttpClient)
+            .WithDefaultHttpClient (ScalarTarget.Http, ScalarClient.Curl)
         |> ignore)
     |> ignore
 
-    let store = TodoStore.start ()
+    let todoEndpoints = Todos.startStore () |> Todos.endpoints
 
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
-    app.UseOxpecker (TodoRoutes.endpoints store) |> ignore
+    app.UseOxpecker todoEndpoints |> ignore
     app.Run ()
     0

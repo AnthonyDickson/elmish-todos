@@ -3,7 +3,7 @@ namespace ElmishTodos.Server.Middleware
 module Middleware =
     open Oxpecker
     open ElmishTodos.Server.Auth
-    open ElmishTodos.Server.Todos.Models
+    open ElmishTodos.Server.ApiError
 
     let notFound (msg : string) : EndpointHandler =
         fun ctx ->
