@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="vendor/Router.fs" />
+    <Compile Include="src/Pages/Todo.fs" />
     <Compile Include="src/App.fs" />
   </ItemGroup>
 
