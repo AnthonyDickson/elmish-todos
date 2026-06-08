@@ -129,10 +129,17 @@ module Todo =
         ]
 
     let view (model : Model) (dispatch : Msg -> unit) =
-        let todoCount = List.length model.Todos
+        let activeCount, completedCount =
+            List.fold
+                (fun (active, completed) todo ->
+                    if todo.Completed then
+                        active, completed + 1
+                    else
+                        active + 1, completed)
+                (0, 0)
+                model.Todos
 
-        let completedCount =
-            List.sumBy (fun todo -> if todo.Completed then 1 else 0) model.Todos
+        let todoCount = activeCount + completedCount
 
         let filteredTodos =
             match model.Visibility with
@@ -207,8 +214,8 @@ module Todo =
                                 Html.p [
                                     prop.className "pt-1"
                                     prop.children [
-                                        Html.strong [ prop.text todoCount ]
-                                        Html.text (if todoCount = 1 then " item left" else " items left")
+                                        Html.strong [ prop.text activeCount ]
+                                        Html.text (if activeCount = 1 then " item left" else " items left")
                                     ]
                                 ]
                                 Html.div [
