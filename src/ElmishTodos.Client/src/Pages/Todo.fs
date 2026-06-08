@@ -2,12 +2,13 @@ namespace ElmishTodos.Client.Pages.Todo
 
 open System
 
+open Browser.WebStorage
 open Elmish
 open Feliz
 open Feliz.Router
+open Thoth.Json
 
 module Todo =
-    // TODO: Add persistence via local storage: https://github.com/tastejs/todomvc/blob/master/app-spec.md#persistence
     // TODO: Create shared assembly for types/code used across both client and server.
     // TODO: Use shared Todo model so that Client and Server are synced
     type Todo = {
@@ -49,6 +50,7 @@ module Todo =
     }
 
     type Msg =
+        | ClientLoadedTodos of Todo list
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -60,19 +62,38 @@ module Todo =
         | UserDeletedCompletedTodos
         | UserChangedVisibility of Visibility
 
+    let localStorageKey = "todomvc-elmish"
+
     let init () : Model * Cmd<Msg> =
         let model = {
             NewTodo = ""
-            // TODO: Remove test data once connected to server
-            Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
+            Todos = []
             Visibility = All
             EditState = None
         }
 
         model, Cmd.none
 
+    let initWithLocalStorage () : Model * Cmd<Msg> =
+        let model, cmd = init ()
+
+        let cmds =
+            Cmd.batch [
+                cmd
+                Cmd.ofEffect (fun dispatch ->
+                    let todosJson = localStorage.getItem localStorageKey
+
+                    match Decode.Auto.fromString<Todo list> todosJson with
+                    | Ok todos -> dispatch (ClientLoadedTodos todos)
+                    | Error err -> eprintfn "could not load todos from local storage: %s" err)
+            ]
+
+        model, cmds
+
+
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
+        | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
@@ -142,6 +163,20 @@ module Todo =
             let todos = List.filter (fun todo -> not todo.Completed) model.Todos
             { model with Todos = todos }, Cmd.none
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
+
+    let updateWithLocalStorage (msg : Msg) (model : Model) : Model * Cmd<Msg> =
+        let model', cmd = update msg model
+
+        let cmds =
+            Cmd.batch [
+                cmd
+                Cmd.ofEffect (fun _ ->
+                    let todosJson = Encode.Auto.toString model'.Todos
+                    localStorage.setItem (localStorageKey, todosJson) |> ignore)
+            ]
+
+        model', cmds
+
 
     let todoListItem (dispatch : Msg -> Unit) (editState : EditState option) (todo : Todo) =
         let liClasses = [
@@ -240,12 +275,9 @@ module Todo =
             let baseClasses = [ "p-1"; "rounded-sm"; "border-1" ]
 
             if visibility = model.Visibility then
-                "border-rose-300/40" :: "border-solid" :: baseClasses
+                "border-rose-300/40" :: baseClasses
             else
-                "border-rose-300/0"
-                :: "hover:border-rose-300/20"
-                :: "hover::border-solid"
-                :: baseClasses
+                "border-rose-300/0" :: "hover:border-rose-300/20" :: baseClasses
 
         Html.div [
             prop.className "bg-gray-100 h-dvh flex h-screen justify-center"

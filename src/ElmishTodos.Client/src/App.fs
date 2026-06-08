@@ -14,16 +14,22 @@ open ElmishTodos.Client.Pages.Todo
 
 type Page = TodoPage
 
-type Model = { TodoPage : Todo.Model }
+type Model = {
+    CurrentPage : Page
+    TodoPage : Todo.Model
+}
 
 type Msg =
     | UrlChanged of string list
     | TodoPageMsg of Todo.Msg
 
 let init () : Model * Cmd<Msg> =
-    let model, cmd = Todo.init ()
+    let model, cmd = Todo.initWithLocalStorage ()
 
-    let model = { TodoPage = model }
+    let model = {
+        TodoPage = model
+        CurrentPage = TodoPage
+    }
 
     let cmd =
         Cmd.batch [
@@ -45,16 +51,18 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
     | UrlChanged segments ->
         let todoModel, cmd =
-            Todo.update (Todo.UserChangedVisibility (urlToVisibility segments)) model.TodoPage
+            Todo.updateWithLocalStorage (Todo.UserChangedVisibility (urlToVisibility segments)) model.TodoPage
 
         { model with TodoPage = todoModel }, Cmd.map TodoPageMsg cmd
     | TodoPageMsg innerMsg ->
-        let innerModel, innerCmd = Todo.update innerMsg model.TodoPage
+        let innerModel, innerCmd = Todo.updateWithLocalStorage innerMsg model.TodoPage
         let innerCmd = Cmd.map TodoPageMsg innerCmd
         { model with TodoPage = innerModel }, innerCmd
 
 let view (model : Model) (dispatch : Msg -> unit) =
-    let page = Todo.view model.TodoPage (TodoPageMsg >> dispatch)
+    let page =
+        match model.CurrentPage with
+        | TodoPage -> Todo.view model.TodoPage (TodoPageMsg >> dispatch)
 
     React.router [ router.onUrlChanged (UrlChanged >> dispatch); router.children page ]
 

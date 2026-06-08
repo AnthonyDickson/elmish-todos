@@ -7,6 +7,7 @@ export default defineConfig({
       watch: {
           ignored: [
               "**/*.fsproj", // Don't watch project files
+              "dist/",
           ]
       }
   },
