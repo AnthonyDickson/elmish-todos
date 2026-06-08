@@ -42,7 +42,7 @@ module Todo =
 
     type Msg =
         | UserChangedNewTodo of string
-        | UserSubmittedNewTodo of string
+        | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
         | UserDeletedTodo of Guid
         | UserDeletedCompletedTodos
@@ -51,6 +51,7 @@ module Todo =
     let init () : Model * Cmd<Msg> =
         let model = {
             NewTodo = ""
+            // TODO: Remove test data once connected to server
             Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
             Visibility = All
         }
@@ -60,11 +61,19 @@ module Todo =
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
-        | UserSubmittedNewTodo title ->
+        | UserSubmittedNewTodo ->
+            let title = model.NewTodo.Trim ()
+
+            let todos =
+                if title.Length > 0 then
+                    model.Todos @ [ Todo.create title ]
+                else
+                    model.Todos
+
             {
                 model with
                     NewTodo = ""
-                    Todos = model.Todos @ [ Todo.create model.NewTodo ]
+                    Todos = todos
             },
             Cmd.none
         | UserToggledCompletedStatus id ->
@@ -172,7 +181,7 @@ module Todo =
                             prop.onChange (fun (e : string) -> dispatch (UserChangedNewTodo e))
                             prop.onKeyDown (fun e ->
                                 if e.key = "Enter" then
-                                    dispatch (UserSubmittedNewTodo model.NewTodo))
+                                    dispatch (UserSubmittedNewTodo))
                         ]
                     ]
                     Html.ol [
