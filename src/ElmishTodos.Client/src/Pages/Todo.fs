@@ -7,6 +7,7 @@ open Feliz
 open Feliz.Router
 
 module Todo =
+    // TODO: Add persistence via local storage: https://github.com/tastejs/todomvc/blob/master/app-spec.md#persistence
     // TODO: Create shared assembly for types/code used across both client and server.
     // TODO: Use shared Todo model so that Client and Server are synced
     type Todo = {
@@ -34,16 +35,27 @@ module Todo =
         | Active
         | Completed
 
+    type EditState = {
+        /// This corresponds to the Todo that is being edited.
+        Id : Guid
+        NewTitle : string
+    }
+
     type Model = {
         NewTodo : string
-        Todos : List<Todo>
+        Todos : Todo list
         Visibility : Visibility
+        EditState : EditState option
     }
 
     type Msg =
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
+        | UserEnteredEditMode of Guid
+        | UserEditedTodo of string
+        | UserExitedEditMode
+        | UserSubmittedEditedTodo
         | UserDeletedTodo of Guid
         | UserDeletedCompletedTodos
         | UserChangedVisibility of Visibility
@@ -54,6 +66,7 @@ module Todo =
             // TODO: Remove test data once connected to server
             Todos = [ Todo.create "Learn Elm" |> Todo.complete; Todo.create "Learn F#" ]
             Visibility = All
+            EditState = None
         }
 
         model, Cmd.none
@@ -78,55 +91,131 @@ module Todo =
             Cmd.none
         | UserToggledCompletedStatus id ->
             let todos =
-                List.map (fun todo -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos
+                List.map (fun (todo : Todo) -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos
 
             { model with Todos = todos }, Cmd.none
+        | UserEnteredEditMode id ->
+            let updatedModel =
+                List.tryFind (fun (todo : Todo) -> todo.Id = id) model.Todos
+                |> Option.map (fun todo -> {
+                    model with
+                        EditState = Some { Id = id; NewTitle = todo.Title }
+                })
+                |> Option.defaultValue model
+
+            updatedModel, Cmd.none
+        | UserEditedTodo text ->
+            let nextEditState =
+                Option.map (fun editState -> { editState with NewTitle = text }) model.EditState
+
+            { model with EditState = nextEditState }, Cmd.none
+        | UserExitedEditMode -> { model with EditState = None }, Cmd.none
+        | UserSubmittedEditedTodo ->
+            match model.EditState with
+            | Some { Id = id; NewTitle = newTitle } ->
+                let newTitle = newTitle.Trim ()
+
+                if newTitle.Length > 0 then
+                    let todos =
+                        List.map
+                            (fun (todo : Todo) ->
+                                if todo.Id = id then
+                                    { todo with Title = newTitle }
+                                else
+                                    todo)
+                            model.Todos
+
+                    {
+                        model with
+                            EditState = None
+                            Todos = todos
+                    },
+                    Cmd.none
+                else
+                    { model with EditState = None }, Cmd.ofMsg (UserDeletedTodo id)
+            | None -> model, Cmd.none
+
         | UserDeletedTodo id ->
-            let todos = List.filter (fun todo -> todo.Id <> id) model.Todos
+            let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
             { model with Todos = todos }, Cmd.none
         | UserDeletedCompletedTodos ->
             let todos = List.filter (fun todo -> not todo.Completed) model.Todos
             { model with Todos = todos }, Cmd.none
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
 
-    let todoListItem (dispatch : Msg -> Unit) (todo : Todo) =
-        Html.li [
-            prop.classes [
-                "bg-gray-50"
-                "py-5"
-                "min-w-xl"
-                "text-2xl"
-                "border-t-1"
-                "border-gray-200"
-                "flex"
-                "items-center"
-                "group"
-            ]
-            prop.key todo.Id
-            prop.children [
-                Html.input [
-                    prop.type' "checkbox"
-                    prop.className "w-5 mx-5"
-                    prop.isChecked todo.Completed
-                    prop.onCheckedChange (fun e -> dispatch (UserToggledCompletedStatus todo.Id))
-                ]
-                // TODO: Double clicking should turn the element into an editable text field
-                Html.p [
-                    prop.text todo.Title
-                    prop.className (
-                        if todo.Completed then
-                            "line-through text-gray-300"
-                        else
-                            "text-gray-600"
-                    )
-                ]
-                Html.button [
-                    prop.text "x"
-                    prop.className "ml-auto mx-5 w-5 text-red-400/0 group-hover:text-red-400"
-                    prop.onClick (fun _ -> dispatch (UserDeletedTodo todo.Id))
-                ]
-            ]
+    let todoListItem (dispatch : Msg -> Unit) (editState : EditState option) (todo : Todo) =
+        let liClasses = [
+            "bg-gray-50"
+            "py-5"
+            "min-w-xl"
+            "text-2xl"
+            "border-t-1"
+            "border-gray-200"
+            "flex"
+            "items-center"
+            "group"
         ]
+
+        match editState with
+        | Some editState when editState.Id = todo.Id ->
+            Html.li [
+                prop.classes liClasses
+                prop.key (editState.Id.ToString () + "+edit")
+                prop.children (
+                    Html.input [
+                        prop.type' "text"
+                        prop.autoFocus true
+                        prop.value editState.NewTitle
+                        prop.onChange (fun text -> dispatch (UserEditedTodo text))
+                        prop.onKeyDown (fun e ->
+                            if e.key = "Enter" then
+                                dispatch UserSubmittedEditedTodo)
+                        prop.onBlur (fun _ -> dispatch UserExitedEditMode)
+                        prop.placeholder "What needs to be done?"
+                        prop.classes [
+                            "text-gray-600"
+                            "text-2xl"
+                            "bg-gray-50"
+                            "focus-visible:outline-none"
+                            "px-15"
+                            "min-w-xl"
+                            "placeholder:text-2xl"
+                            "placeholder:text-gray-300"
+                            "placeholder:italic"
+                        ]
+                    ]
+                )
+            ]
+        | _ ->
+            Html.li [
+                prop.classes liClasses
+                prop.key todo.Id
+                prop.onDoubleClick (fun _ -> dispatch (UserEnteredEditMode todo.Id))
+                prop.children [
+                    Html.input [
+                        prop.type' "checkbox"
+                        prop.className "w-5 mx-5"
+                        prop.isChecked todo.Completed
+                        prop.onCheckedChange (fun e -> dispatch (UserToggledCompletedStatus todo.Id))
+                    ]
+
+                    Html.p [
+                        prop.text todo.Title
+                        prop.className (
+                            if todo.Completed then
+                                "line-through text-gray-300"
+                            else
+                                "text-gray-600"
+                        )
+                    ]
+
+                    Html.button [
+                        prop.text "x"
+                        prop.className "ml-auto mx-5 w-5 text-red-400/0 group-hover:text-red-400"
+                        prop.onClick (fun _ -> dispatch (UserDeletedTodo todo.Id))
+                    ]
+                ]
+            ]
 
     let view (model : Model) (dispatch : Msg -> unit) =
         let activeCount, completedCount =
@@ -188,12 +277,12 @@ module Todo =
                             prop.onChange (fun (e : string) -> dispatch (UserChangedNewTodo e))
                             prop.onKeyDown (fun e ->
                                 if e.key = "Enter" then
-                                    dispatch (UserSubmittedNewTodo))
+                                    dispatch UserSubmittedNewTodo)
                         ]
                     ]
                     Html.ol [
                         prop.className "drop-shadow-sm"
-                        prop.children (List.map (todoListItem dispatch) filteredTodos)
+                        prop.children (List.map (todoListItem dispatch model.EditState) filteredTodos)
                     ]
                     if todoCount > 0 then
                         Html.footer [
