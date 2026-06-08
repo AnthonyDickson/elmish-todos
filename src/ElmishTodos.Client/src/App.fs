@@ -12,12 +12,7 @@ open Feliz.UseElmish
 open ElmishTodos.Client.TodoPage
 
 
-type Page = TodoPage
-
-type Model = {
-    CurrentPage : Page
-    TodoPage : Todo.Model
-}
+type Model = { TodoPage : Todo.Model }
 
 type Msg =
     | UrlChanged of string list
@@ -26,10 +21,7 @@ type Msg =
 let init () : Model * Cmd<Msg> =
     let model, cmd = Todo.initWithLocalStorage ()
 
-    let model = {
-        TodoPage = model
-        CurrentPage = TodoPage
-    }
+    let model = { TodoPage = model }
 
     let cmd =
         Cmd.batch [
@@ -60,9 +52,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with TodoPage = innerModel }, innerCmd
 
 let view (model : Model) (dispatch : Msg -> unit) =
-    let page =
-        match model.CurrentPage with
-        | TodoPage -> Todo.view model.TodoPage (TodoPageMsg >> dispatch)
+    let page = Todo.view model.TodoPage (TodoPageMsg >> dispatch)
 
     React.router [ router.onUrlChanged (UrlChanged >> dispatch); router.children page ]
 
