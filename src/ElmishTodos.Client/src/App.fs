@@ -9,7 +9,7 @@ open Feliz
 open Feliz.Router
 open Feliz.UseElmish
 
-open ElmishTodos.Client.Pages.Todo
+open ElmishTodos.Client.TodoPage
 
 
 type Page = TodoPage

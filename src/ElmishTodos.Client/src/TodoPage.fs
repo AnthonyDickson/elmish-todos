@@ -1,4 +1,4 @@
-namespace ElmishTodos.Client.Pages.Todo
+namespace ElmishTodos.Client.TodoPage
 
 open System
 
