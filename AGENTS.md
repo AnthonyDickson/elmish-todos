@@ -56,12 +56,15 @@ The server follows **vertical slice architecture**: the `Todos/` directory is a 
 
 ### Client (`src/ElmishTodos.Client/`)
 
-The client uses the Elmish (MVU) pattern compiled to JS via Fable:
+The client uses the Elmish (MVU) pattern compiled to JS via Fable, with Tailwind CSS v4 and React 19:
 
-- `src/App.fs` — Elmish `Model`/`Msg`/`init`/`update`/`view` + React root
-- `src/app.css` — Tailwind CSS entry point
-- `vite.config.ts` — Vite bundler config with the Tailwind plugin
-- `package.json` — npm dependencies (React, Vite, Tailwind)
+- `src/App.fs` — Application shell: top-level routing and page delegation
+- `src/TodoPage.fs` — Todo MVU page: model, update, and view; persists to `localStorage`
+- `vendor/Router.fs` — Vendored `Feliz.Router` (must compile before `TodoPage.fs`)
+- `src/app.css` — Tailwind CSS v4 entry point
+- `vite.config.ts` — Vite config with `@tailwindcss/vite` plugin (no PostCSS needed)
+- `package.json` — React 19, Vite 8, Tailwind CSS 4
+- `index.html` — Entry HTML referencing the built JS at `build/src/App.js`
 
 ## Solution Structure
 
@@ -70,9 +73,20 @@ ElmishTodos.slnx                     # Solution file (XML-based .slnx format)
 src/
   ElmishTodos.Server/                # Web API project
   ElmishTodos.Client/                # Fable/Elmish + Vite frontend
+    vendor/Router.fs                 # Vendored Feliz.Router
+    src/
+      App.fs                         # App shell (routing + page delegation)
+      TodoPage.fs                    # Todo page (model, update, view)
 ```
 
 ## Architecture
+
+### Client Architecture
+
+The client is split into two MVU layers:
+
+- **`App.fs`** — Thin shell handling routing and page delegation. Routes `/`, `/active`, `/completed` map to `Todo.Visibility` values.
+- **`TodoPage.fs`** — The Todo MVC page. Persists state to `localStorage` via `initWithLocalStorage` / `updateWithLocalStorage`. Supports inline editing via double-click.
 
 ### Store (`src/ElmishTodos.Server/Todos/Store.fs`)
 
@@ -159,7 +173,7 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 - **Client requires `npm install`** in `src/ElmishTodos.Client/` before `make client-watch` or `make client-build`.
 - **Fable compiles F# to JS** — `make client-watch` uses `dotnet fable watch` with incremental compilation; `make client-build` produces a production bundle via `vite build`.
 - **Fable outputs to `build/`** via `--outDir build`. When using `--outDir`, Fable 5 drops the `.fs` infix (e.g., `src/App.fs` → `build/src/App.js`, not `App.fs.js`). Without `--outDir`, the `.fs` infix is kept. Don't mix the two naming patterns.
-- **No test project exists yet** — add one under `src/ElmishTodos.Server.Tests/` or `src/ElmishTodos.Client.Tests/` to keep the multi-project convention.
+- **No test project exists yet** — add one under `tests/ElmishTodos.Server.Tests/` or `tests/ElmishTodos.Client.Tests/` to keep the multi-project convention.
 - **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the server's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
 - **`TodoMessage` DU is `private`** — you cannot construct these messages directly; use the module functions on `Store`.
 - **Store is ephemeral** — all data is lost on restart (in-memory `Map`).
