@@ -85,7 +85,7 @@ module Todo =
 
                     match Decode.Auto.fromString<Todo list> todosJson with
                     | Ok todos -> dispatch (ClientLoadedTodos todos)
-                    | Error err -> eprintfn "could not load todos from local storage: %s" err)
+                    | Error err -> eprintfn $"could not load todos from local storage: %s{err}")
             ]
 
         model, cmds
@@ -172,7 +172,7 @@ module Todo =
                 cmd
                 Cmd.ofEffect (fun _ ->
                     let todosJson = Encode.Auto.toString model'.Todos
-                    localStorage.setItem (localStorageKey, todosJson) |> ignore)
+                    localStorage.setItem (localStorageKey, todosJson))
             ]
 
         model', cmds
@@ -231,7 +231,7 @@ module Todo =
                         prop.type' "checkbox"
                         prop.className "w-5 mx-5"
                         prop.isChecked todo.Completed
-                        prop.onCheckedChange (fun e -> dispatch (UserToggledCompletedStatus todo.Id))
+                        prop.onCheckedChange (fun _ -> dispatch (UserToggledCompletedStatus todo.Id))
                     ]
 
                     Html.p [
@@ -269,7 +269,7 @@ module Todo =
             match model.Visibility with
             | All -> model.Todos
             | Active -> List.filter (fun todo -> not todo.Completed) model.Todos
-            | Completed -> List.filter (fun todo -> todo.Completed) model.Todos
+            | Completed -> List.filter _.Completed model.Todos
 
         let visibilityClasses visibility =
             let baseClasses = [ "p-1"; "rounded-sm"; "border-1" ]
