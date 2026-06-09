@@ -6,26 +6,11 @@ open Browser.WebStorage
 open Elmish
 open Feliz
 open Feliz.Router
-open Thoth.Json
 
+open ElmishTodos.Shared.Coders
 open ElmishTodos.Shared.Todo
 
-module Todo =
-    module Todo =
-        let create title = {
-            Id = Guid.CreateVersion7 ()
-            Title = title
-            Completed = false
-            CreatedAt = DateTime.UtcNow
-        }
-
-        let complete todo = { todo with Completed = true }
-
-        let toggleComplete todo = {
-            todo with
-                Completed = not todo.Completed
-        }
-
+module TodoPage =
     type Visibility =
         | All
         | Active
@@ -78,7 +63,7 @@ module Todo =
                 Cmd.ofEffect (fun dispatch ->
                     let todosJson = localStorage.getItem localStorageKey
 
-                    match Decode.Auto.fromString<Todo list> todosJson with
+                    match Decode.fromString todosJson with
                     | Ok todos -> dispatch (ClientLoadedTodos todos)
                     | Error err -> eprintfn $"could not load todos from local storage: %s{err}")
             ]
@@ -155,7 +140,7 @@ module Todo =
             let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
             { model with Todos = todos }, Cmd.none
         | UserDeletedCompletedTodos ->
-            let todos = List.filter (fun todo -> not todo.Completed) model.Todos
+            let todos = List.filter (fun (todo : Todo) -> not todo.Completed) model.Todos
             { model with Todos = todos }, Cmd.none
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
 
@@ -166,7 +151,7 @@ module Todo =
             Cmd.batch [
                 cmd
                 Cmd.ofEffect (fun _ ->
-                    let todosJson = Encode.Auto.toString model'.Todos
+                    let todosJson = Encode.toString model'.Todos
                     localStorage.setItem (localStorageKey, todosJson))
             ]
 
@@ -250,7 +235,7 @@ module Todo =
     let view (model : Model) (dispatch : Msg -> unit) =
         let activeCount, completedCount =
             List.fold
-                (fun (active, completed) todo ->
+                (fun (active, completed) (todo : Todo) ->
                     if todo.Completed then
                         active, completed + 1
                     else

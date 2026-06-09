@@ -17,18 +17,24 @@ type Todo = {
     CreatedAt : DateTime
 }
 
+/// <summary>Payload for creating a new todo item.</summary>
+type CreateTodoRequest = { Title : string }
+
+/// <summary>Payload for updating an existing todo item.</summary>
+type UpdateTodoRequest = { Title : string; Completed : bool }
+
+[<RequireQualifiedAccess>]
 module Todo =
-#if FABLE_COMPILER
-    open Thoth.Json
-#else
-    open Thoth.Json.Net
-#endif
+    let create (title : string) = {
+        Id = Guid.CreateVersion7 ()
+        Title = title
+        Completed = false
+        CreatedAt = DateTime.UtcNow
+    }
 
-// let encoder : Encoder<Todo> =
-//     fun todo -> Encode.object [ "id", Encode.string person.Name; "age", Encode.int person.Age ]
+    let complete (todo : Todo) = { todo with Completed = true }
 
-// let decoder : Decoder<Todo> =
-//     Decode.object (fun get -> {
-//         Name = get.Required.Field "name" Decode.string
-//         Age = get.Required.Field "age" Decode.int
-//     })
+    let toggleComplete (todo : Todo) = {
+        todo with
+            Completed = not todo.Completed
+    }

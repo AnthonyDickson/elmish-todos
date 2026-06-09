@@ -5,6 +5,7 @@
     <RootNamespace>ElmishTodos.Server</RootNamespace>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +22,7 @@
     <PackageReference Include="Oxpecker" />
     <PackageReference Include="Oxpecker.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Thoth.Json.Net" />
   </ItemGroup>
 
 </Project>

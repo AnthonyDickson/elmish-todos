@@ -16,10 +16,12 @@
 
 **Routes.fs** — register the new routes
 
+**ElmishTodos.Server.fsproj** — remove `<StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>` (added to suppress a `dotnet watch` error for API-only projects; needed once we serve static files)
+
 **Program.fs** — add:
 
-- `app.UseDefaultFiles()` + `app.UseStaticFiles()` to serve the client's `dist/` output
-- SPA fallback: `app.MapFallbackToFile("index.html")` if using SPA routing
+- `app.UseDefaultFiles()` + `app.UseStaticFiles()` to serve the client's `dist/` output (copied into a `wwwroot/` directory)
+- SPA fallback: `app.MapFallbackToFile("index.html")` for client-side routing
 
 ### 2b. Client Changes
 

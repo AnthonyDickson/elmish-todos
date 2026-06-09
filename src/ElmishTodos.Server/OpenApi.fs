@@ -4,6 +4,7 @@ module OpenApi =
     open Microsoft.AspNetCore.OpenApi
     open Microsoft.FSharp.Reflection
     open Microsoft.OpenApi
+    open System.Collections.Concurrent
     open System.Collections.Generic
     open System.IO
     open System.Reflection
@@ -55,37 +56,33 @@ module OpenApi =
 
     /// <summary>Populates schema and property descriptions from F# XML doc comments (`summary` tags on types and record fields).</summary>
     type XmlDocSchemaTransformer () =
-        let docCache =
-            lazy
-                let asm = Assembly.GetExecutingAssembly ()
-                let xmlPath = Path.ChangeExtension (asm.Location, ".xml")
+        let loadedDocs =
+            System.Collections.Concurrent.ConcurrentDictionary<string, Map<string, string>> ()
 
-                if File.Exists xmlPath then
-                    XDocument.Load xmlPath |> Some
-                else
-                    None
+        let tryLoadDoc (asm : Assembly) : Map<string, string> =
+            let xmlPath = Path.ChangeExtension (asm.Location, ".xml")
 
-        let summaryLookup : Lazy<Map<string, string>> =
-            lazy
-                match docCache.Force () with
-                | None -> Map.empty
-                | Some doc ->
-                    doc.Descendants (XName.Get "member")
-                    |> Seq.choose (fun el ->
-                        let name = el.Attribute (XName.Get "name") |> Option.ofObj
+            if File.Exists xmlPath then
+                let doc = XDocument.Load xmlPath
 
-                        let summary =
-                            el.Element (XName.Get "summary")
-                            |> Option.ofObj
-                            |> Option.map (fun e -> e.Value.Trim ())
+                doc.Descendants (XName.Get "member")
+                |> Seq.choose (fun el ->
+                    let name = el.Attribute (XName.Get "name") |> Option.ofObj
 
-                        match name, summary with
-                        | Some n, Some s -> Some (n.Value, s)
-                        | _ -> None)
-                    |> Map.ofSeq
+                    let summary =
+                        el.Element (XName.Get "summary")
+                        |> Option.ofObj
+                        |> Option.map (fun e -> e.Value.Trim ())
 
-        let tryGetSummary (key : string) : string option =
-            summaryLookup.Force () |> Map.tryFind key
+                    match name, summary with
+                    | Some n, Some s -> Some (n.Value, s)
+                    | _ -> None)
+                |> Map.ofSeq
+            else
+                Map.empty
+
+        let getSummaries (asm : Assembly) : Map<string, string> =
+            loadedDocs.GetOrAdd (asm.Location, fun _ -> tryLoadDoc asm)
 
         interface IOpenApiSchemaTransformer with
             member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
@@ -93,10 +90,12 @@ module OpenApi =
                 // .NET reflection uses '+' for nested types but XML doc uses '.'
                 let xmlTypeName = jsonType.FullName.Replace ('+', '.')
 
+                let summaries = getSummaries jsonType.Assembly
+
                 // Set type-level description from <summary> on the type itself
                 let typeKey = $"T:%s{xmlTypeName}"
 
-                match tryGetSummary typeKey with
+                match summaries.TryFind typeKey with
                 | Some summary -> schema.Description <- summary
                 | None -> ()
 
@@ -106,7 +105,7 @@ module OpenApi =
                         let fieldKey = $"P:%s{xmlTypeName}.%s{field.Name}"
                         let jsonName = JsonNamingPolicy.CamelCase.ConvertName field.Name
 
-                        match tryGetSummary fieldKey with
+                        match summaries.TryFind fieldKey with
                         | Some summary ->
                             if not (isNull schema.Properties) && schema.Properties.ContainsKey jsonName then
                                 schema.Properties[jsonName].Description <- summary

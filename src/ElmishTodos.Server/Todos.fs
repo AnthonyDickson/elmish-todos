@@ -16,12 +16,6 @@ module Models =
 
     type Store = MailboxProcessor<TodoMessage>
 
-    // ── Request DTOs ─────────────────────────────────────────────────────────────
-
-    type CreateTodoRequest = { Title : string }
-
-    type UpdateTodoRequest = { Title : string; Completed : bool }
-
 module Store =
     open System
 
@@ -81,20 +75,37 @@ module Store =
 
 module Handlers =
     open System
+    open System.IO
+    open System.Text
 
     open Oxpecker
+    open Microsoft.AspNetCore.Http
 
+    open ElmishTodos.Shared.Coders
     open ElmishTodos.Shared.Todo
     open ElmishTodos.Server.ApiError
     open ElmishTodos.Server.Middleware
     open Models
+
+    let private writeJson (ctx : HttpContext) (object : 'T) =
+        task {
+            ctx.Response.ContentType <- "application/json; charset=utf-8"
+            return! ctx.Response.WriteAsync (Encode.toString object)
+        }
+
+    let private readJson (ctx : HttpContext) =
+        task {
+            use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
+            let! body = reader.ReadToEndAsync ()
+            return Decode.fromString body
+        }
 
     /// GET /todos — list all items
     let getTodos (store : Store) : EndpointHandler =
         fun ctx ->
             task {
                 let! items = Store.getAll store
-                return! ctx.WriteJson items
+                return! writeJson ctx items
             }
 
     /// GET /todos/{id} — get one item
@@ -104,7 +115,7 @@ module Handlers =
                 let! todo = Store.get store id
 
                 match todo with
-                | Some item -> return! ctx.WriteJson item
+                | Some item -> return! writeJson ctx item
                 | None -> return! Middleware.notFound $"Todo {id} not found" ctx
             }
 
@@ -113,56 +124,71 @@ module Handlers =
         fun ctx ->
             task {
                 let! items = Store.getAll store
-                return! ctx.WriteJson items
+                return! writeJson ctx items
             }
 
     /// POST /todos — create an item
     let createTodo (store : Store) : EndpointHandler =
         fun ctx ->
             task {
-                let! req = ctx.BindJson<CreateTodoRequest> ()
+                let! result: Result<CreateTodoRequest, string> = readJson ctx
 
-                if String.IsNullOrWhiteSpace req.Title then
+                match result with
+                | Ok req ->
+                    if String.IsNullOrWhiteSpace req.Title then
+                        ctx.SetStatusCode 400
+
+                        return!
+                            writeJson ctx {
+                                Error = "Validation Error"
+                                Details = "Title is required"
+                            }
+                    else
+                        let item = Todo.create (req.Title.Trim ())
+
+                        Store.upsert store item
+                        ctx.SetStatusCode 201
+                        return! writeJson ctx item
+                | Error err ->
                     ctx.SetStatusCode 400
 
                     return!
-                        ctx.WriteJson {
+                        writeJson ctx {
                             Error = "Validation Error"
-                            Details = "Title is required"
+                            Details = err
                         }
-                else
-                    let item = {
-                        Id = Guid.NewGuid ()
-                        Title = req.Title.Trim ()
-                        Completed = false
-                        CreatedAt = DateTime.UtcNow
-                    }
-
-                    Store.upsert store item
-                    ctx.SetStatusCode 201
-                    return! ctx.WriteJson item
             }
 
     /// PUT /todos/{id} — replace an item
     let updateTodo (store : Store) (id : Guid) : EndpointHandler =
         fun ctx ->
             task {
-                let! req = ctx.BindJson<UpdateTodoRequest> ()
+                let! result: Result<UpdateTodoRequest, string> = readJson ctx
 
-                if String.IsNullOrWhiteSpace req.Title then
+                match result with
+                | Ok req ->
+                    if String.IsNullOrWhiteSpace req.Title then
+                        ctx.SetStatusCode 400
+
+                        return!
+                            writeJson ctx {
+                                    Error = "Validation Error"
+                                    Details = "Title is required"
+                                }
+                    else
+                        let! updated = Store.update store id (req.Title.Trim ()) req.Completed
+
+                        match updated with
+                        | Some updated -> return! writeJson ctx updated
+                        | None -> return! Middleware.notFound $"Todo {id} not found" ctx
+                | Error err ->
                     ctx.SetStatusCode 400
 
                     return!
-                        ctx.WriteJson {
-                            Error = "Validation Error"
-                            Details = "Title is required"
-                        }
-                else
-                    let! updated = Store.update store id (req.Title.Trim ()) req.Completed
-
-                    match updated with
-                    | Some updated -> return! ctx.WriteJson updated
-                    | None -> return! Middleware.notFound $"Todo {id} not found" ctx
+                        writeJson ctx {
+                                Error = "Validation Error"
+                                Details = err
+                            }
             }
 
     /// DELETE /todos/{id} — remove an item
@@ -178,6 +204,7 @@ module Handlers =
                     return! Middleware.notFound $"Todo {id} not found" ctx
             }
 
+// TODO: Put routes under "/api"
 module Routes =
     open Microsoft.OpenApi
     open System.Threading.Tasks

@@ -12,14 +12,14 @@ open Feliz.UseElmish
 open ElmishTodos.Client.TodoPage
 
 
-type Model = { TodoPage : Todo.Model }
+type Model = { TodoPage : TodoPage.Model }
 
 type Msg =
     | UrlChanged of string list
-    | TodoPageMsg of Todo.Msg
+    | TodoPageMsg of TodoPage.Msg
 
 let init () : Model * Cmd<Msg> =
-    let model, cmd = Todo.initWithLocalStorage ()
+    let model, cmd = TodoPage.initWithLocalStorage ()
 
     let model = { TodoPage = model }
 
@@ -35,24 +35,24 @@ let init () : Model * Cmd<Msg> =
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     let urlToVisibility =
         function
-        | [] -> Todo.All
-        | [ "active" ] -> Todo.Active
-        | [ "completed" ] -> Todo.Completed
+        | [] -> TodoPage.All
+        | [ "active" ] -> TodoPage.Active
+        | [ "completed" ] -> TodoPage.Completed
         | _ -> model.TodoPage.Visibility
 
     match msg with
     | UrlChanged segments ->
         let todoModel, cmd =
-            Todo.updateWithLocalStorage (Todo.UserChangedVisibility (urlToVisibility segments)) model.TodoPage
+            TodoPage.updateWithLocalStorage (TodoPage.UserChangedVisibility (urlToVisibility segments)) model.TodoPage
 
         { model with TodoPage = todoModel }, Cmd.map TodoPageMsg cmd
     | TodoPageMsg innerMsg ->
-        let innerModel, innerCmd = Todo.updateWithLocalStorage innerMsg model.TodoPage
+        let innerModel, innerCmd = TodoPage.updateWithLocalStorage innerMsg model.TodoPage
         let innerCmd = Cmd.map TodoPageMsg innerCmd
         { model with TodoPage = innerModel }, innerCmd
 
 let view (model : Model) (dispatch : Msg -> unit) =
-    let page = Todo.view model.TodoPage (TodoPageMsg >> dispatch)
+    let page = TodoPage.view model.TodoPage (TodoPageMsg >> dispatch)
 
     React.router [ router.onUrlChanged (UrlChanged >> dispatch); router.children page ]
 
