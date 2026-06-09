@@ -17,9 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Oxpecker" Version="2.0.0" />
-    <PackageReference Include="Oxpecker.OpenApi" Version="2.1.1" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.5.5" />
+    <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
+    <PackageReference Include="Oxpecker" />
+    <PackageReference Include="Oxpecker.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
 </Project>

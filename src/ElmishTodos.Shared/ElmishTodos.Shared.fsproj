@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ElmishTodos.Shared</RootNamespace>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <Fable>true</Fable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Todo.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Thoth.Json.Net" Condition="'$(FABLE_COMPILER)' == ''" />
+    <PackageReference Include="Thoth.Json"     Condition="'$(FABLE_COMPILER)' != ''" />
+  </ItemGroup>
+
+</Project>

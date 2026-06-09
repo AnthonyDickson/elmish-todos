@@ -13,11 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="5.0.0" />
-    <PackageReference Include="Fable.Elmish" Version="5.0.2" />
-    <PackageReference Include="Feliz" Version="3.3.3" />
-    <PackageReference Include="Feliz.UseElmish" Version="5.0.0" />
-    <PackageReference Include="Thoth.Json" Version="10.5.1" />
+    <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
+    <PackageReference Include="Fable.Core" />
+    <PackageReference Include="Fable.Elmish" />
+    <PackageReference Include="Feliz" />
+    <PackageReference Include="Feliz.UseElmish" />
+    <PackageReference Include="Thoth.Json" />
   </ItemGroup>
 
 </Project>

@@ -50,6 +50,10 @@ F# compiles files in order. The `.fsproj` defines this sequence — **new files 
 
 The solution file is `ElmishTodos.slnx` (the newer XML-based format).
 
+### Shared (`src/ElmishTodos.Shared/`)
+
+The shared project contains types used by both client and server. It is referenced as a `<ProjectReference>` by both projects. The `Todo` record type lives here, along with a companion module for JSON encoding/decoding. Conditional compilation (`#if FABLE_COMPILER`) selects `Thoth.Json` for the client and `Thoth.Json.Net` for the server. Modules with the same name as a type use `[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]` to avoid name conflicts.
+
 ### Server (`src/ElmishTodos.Server/`)
 
 The server follows **vertical slice architecture**: the `Todos/` directory is a self-contained feature slice. Cross-cutting concerns (`Auth`, `Middleware`, `OpenApi`) live at the project root. Module paths mirror file paths (e.g., `Todos/Models.fs` → `module ElmishTodos.Server.Todos.Models`).
@@ -70,7 +74,11 @@ The client uses the Elmish (MVU) pattern compiled to JS via Fable, with Tailwind
 
 ```
 ElmishTodos.slnx                     # Solution file (XML-based .slnx format)
+Directory.Build.props                # Enables Central Package Management
+Directory.Packages.props             # Centralized NuGet package versions
 src/
+  ElmishTodos.Shared/                # Types shared between client and server
+    Todo.fs                          # Todo model
   ElmishTodos.Server/                # Web API project
   ElmishTodos.Client/                # Fable/Elmish + Vite frontend
     vendor/Router.fs                 # Vendored Feliz.Router
@@ -168,7 +176,7 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 
 ## Gotchas
 
-- **Lockfile is enforced**: `RestorePackagesWithLockFile` is true in both `.fsproj` files. After adding/updating NuGet packages, run `dotnet restore --lock-file-mode update` to regenerate `packages.lock.json`.
+- **Lockfile is enforced**: `RestorePackagesWithLockFile` is true in all `.fsproj` files. After adding/updating NuGet packages, run `dotnet restore --force-evaluate --project <project>` to regenerate `packages.lock.json`.
 - **Compilation order matters in .fsproj**: new `.fs` files must be `<Compile Include>`'d in dependency order.
 - **Client requires `npm install`** in `src/ElmishTodos.Client/` before `make client-watch` or `make client-build`.
 - **Fable compiles F# to JS** — `make client-watch` uses `dotnet fable watch` with incremental compilation; `make client-build` produces a production bundle via `vite build`.
@@ -176,4 +184,5 @@ Errors use a record type `{ Error: string; Details: string }` serialized as JSON
 - **No test project exists yet** — add one under `tests/ElmishTodos.Server.Tests/` or `tests/ElmishTodos.Client.Tests/` to keep the multi-project convention.
 - **`FSharpOptionSchemaTransformer`** is defined in the `Oxpecker.OpenApi` package, not in the server's `OpenApi.fs`. The file only contains `FSharpRecordSchemaTransformer`.
 - **`TodoMessage` DU is `private`** — you cannot construct these messages directly; use the module functions on `Store`.
+- **Centralized package versions**: This project uses NuGet's [Central Package Management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management). All versions live in `Directory.Packages.props` as `<PackageVersion>` items. `Directory.Build.props` enables CPM via `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`. Project files use bare `<PackageReference Include="..." />` — no `Version` attribute. `dotnet add package` handles CPM natively (writes the version to `Directory.Packages.props` and a bare reference to the `.fsproj`). To upgrade, edit `Directory.Packages.props` directly and run `dotnet restore --force-evaluate --project <project>`.
 - **Store is ephemeral** — all data is lost on restart (in-memory `Map`).

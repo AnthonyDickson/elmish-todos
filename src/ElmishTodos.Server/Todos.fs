@@ -3,30 +3,15 @@ namespace ElmishTodos.Server.Todos
 module Models =
     open System
 
-    // ── Domain types ──────────────────────────────────────────────────────────────
-
-    /// <summary>A todo item stored in the in-memory todo list.</summary>
-    type TodoItem = {
-        /// <summary>Unique identifier for the todo item.</summary>
-        Id : Guid
-
-        /// <summary>The title or description of the todo.</summary>
-        Title : string
-
-        /// <summary>Whether the todo has been completed.</summary>
-        Completed : bool
-
-        /// <summary>UTC timestamp when the todo was created.</summary>
-        CreatedAt : DateTime
-    }
+    open ElmishTodos.Shared.Todo
 
     // ── Todo Store ───────────────────────────────────────────────────────────────
 
     type TodoMessage =
-        | GetAll of AsyncReplyChannel<TodoItem list>
-        | Get of Guid * AsyncReplyChannel<TodoItem option>
-        | Upsert of TodoItem
-        | Update of id : Guid * title : string * completed : bool * reply : AsyncReplyChannel<TodoItem option>
+        | GetAll of AsyncReplyChannel<Todo list>
+        | Get of Guid * AsyncReplyChannel<Todo option>
+        | Upsert of Todo
+        | Update of id : Guid * title : string * completed : bool * reply : AsyncReplyChannel<Todo option>
         | Delete of Guid * AsyncReplyChannel<bool>
 
     type Store = MailboxProcessor<TodoMessage>
@@ -40,10 +25,11 @@ module Models =
 module Store =
     open System
 
+    open ElmishTodos.Shared.Todo
     open Models
 
     let start () : Store =
-        let rec loop (state : Map<Guid, TodoItem>) (inbox : Store) =
+        let rec loop (state : Map<Guid, Todo>) (inbox : Store) =
             async {
                 let! msg = inbox.Receive ()
 
@@ -80,14 +66,14 @@ module Store =
 
         MailboxProcessor.Start (loop Map.empty)
 
-    let getAll (todoStore : Store) : Async<TodoItem list> = todoStore.PostAndAsyncReply GetAll
+    let getAll (todoStore : Store) : Async<Todo list> = todoStore.PostAndAsyncReply GetAll
 
-    let get (todoStore : Store) (todoId : Guid) : Async<TodoItem option> =
+    let get (todoStore : Store) (todoId : Guid) : Async<Todo option> =
         todoStore.PostAndAsyncReply (fun reply -> Get (todoId, reply))
 
-    let upsert (todoStore : Store) (todo : TodoItem) : unit = todoStore.Post (Upsert todo)
+    let upsert (todoStore : Store) (todo : Todo) : unit = todoStore.Post (Upsert todo)
 
-    let update (todoStore : Store) (id : Guid) (title : string) (completed : bool) : Async<TodoItem option> =
+    let update (todoStore : Store) (id : Guid) (title : string) (completed : bool) : Async<Todo option> =
         todoStore.PostAndAsyncReply (fun reply -> Update (id, title, completed, reply))
 
     let delete (todoStore : Store) (todoId : Guid) : Async<bool> =
@@ -98,6 +84,7 @@ module Handlers =
 
     open Oxpecker
 
+    open ElmishTodos.Shared.Todo
     open ElmishTodos.Server.ApiError
     open ElmishTodos.Server.Middleware
     open Models
@@ -198,6 +185,7 @@ module Routes =
     open Oxpecker
     open Oxpecker.OpenApi
 
+    open ElmishTodos.Shared.Todo
     open ElmishTodos.Server.Auth
     open ElmishTodos.Server.ApiError
     open ElmishTodos.Server.Middleware
@@ -216,7 +204,7 @@ module Routes =
             route "/todos" (Handlers.getTodos store)
             |> addOpenApi (
                 OpenApiConfig (
-                    responseBodies = [| ResponseBody typeof<TodoItem array> |],
+                    responseBodies = [| ResponseBody typeof<Todo array> |],
                     configureOperation =
                         fun op _ _ ->
                             op.Summary <- "List all todos"
@@ -229,7 +217,7 @@ module Routes =
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
-                        ResponseBody typeof<TodoItem>
+                        ResponseBody typeof<Todo>
                         ResponseBody (typeof<ApiError>, statusCode = 404)
                     |],
                     configureOperation =
@@ -244,7 +232,7 @@ module Routes =
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
-                        ResponseBody typeof<TodoItem array>
+                        ResponseBody typeof<Todo array>
                         ResponseBody (typeof<ApiError>, statusCode = 401)
                     |],
                     configureOperation =
@@ -263,7 +251,7 @@ module Routes =
                 OpenApiConfig (
                     requestBody = RequestBody typeof<CreateTodoRequest>,
                     responseBodies = [|
-                        ResponseBody (typeof<TodoItem>, statusCode = 201)
+                        ResponseBody (typeof<Todo>, statusCode = 201)
                         ResponseBody (typeof<ApiError>, statusCode = 400)
                     |],
                     configureOperation =
@@ -281,7 +269,7 @@ module Routes =
                 OpenApiConfig (
                     requestBody = RequestBody typeof<UpdateTodoRequest>,
                     responseBodies = [|
-                        ResponseBody typeof<TodoItem>
+                        ResponseBody typeof<Todo>
                         ResponseBody (typeof<ApiError>, statusCode = 400)
                         ResponseBody (typeof<ApiError>, statusCode = 404)
                     |],

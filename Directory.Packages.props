@@ -1,0 +1,16 @@
+<Project>
+  <ItemGroup>
+    <!-- Server -->
+    <PackageVersion Include="Oxpecker" Version="2.0.0" />
+    <PackageVersion Include="Oxpecker.OpenApi" Version="2.1.1" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.5.5" />
+    <!-- Client -->
+    <PackageVersion Include="Fable.Core" Version="5.0.0" />
+    <PackageVersion Include="Fable.Elmish" Version="5.0.2" />
+    <PackageVersion Include="Feliz" Version="3.3.3" />
+    <PackageVersion Include="Feliz.UseElmish" Version="5.0.0" />
+    <PackageVersion Include="Thoth.Json" Version="10.5.1" />
+    <!-- Shared -->
+    <PackageVersion Include="Thoth.Json.Net" Version="12.0.0" />
+  </ItemGroup>
+</Project>

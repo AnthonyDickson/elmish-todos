@@ -8,20 +8,15 @@ open Feliz
 open Feliz.Router
 open Thoth.Json
 
-module Todo =
-    // TODO: Create shared assembly for types/code used across both client and server.
-    // TODO: Use shared Todo model so that Client and Server are synced
-    type Todo = {
-        Id : Guid
-        Title : string
-        Completed : bool
-    }
+open ElmishTodos.Shared.Todo
 
+module Todo =
     module Todo =
         let create title = {
             Id = Guid.CreateVersion7 ()
             Title = title
             Completed = false
+            CreatedAt = DateTime.UtcNow
         }
 
         let complete todo = { todo with Completed = true }

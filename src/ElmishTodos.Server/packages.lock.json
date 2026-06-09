@@ -1,13 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "dependencies": {
     "net10.0": {
-      "FSharp.Core": {
-        "type": "Direct",
-        "requested": "[10.1.300, )",
-        "resolved": "10.1.300",
-        "contentHash": "RyvSrBEw14zHD/q+PHWw/8SZV/dX95maclmm4fgP0iVexzNtwQ6XGHLzv2wP+naw3LlLEGI4jW+QaW2T9zqKiA=="
-      },
       "Oxpecker": {
         "type": "Direct",
         "requested": "[2.0.0, )",
@@ -37,6 +31,11 @@
         "resolved": "2.5.5",
         "contentHash": "0LTfeypcNYxE4j0NidUOswdKPWCkEk8mGs9Z/rexH7aHFS/7NqxALlQ3mOLLPQvhmLPIztCIShw0j4D6KYJ24w=="
       },
+      "FSharp.Core": {
+        "type": "Transitive",
+        "resolved": "10.0.101",
+        "contentHash": "mrS3J7cLtvXM3u3CmiaFq8oyBdlevzZY1VAAAbFk1gUDQtDEjUOybN5XpQglx5wAgJ0wLdDl6OSSfS7ZDFNcpA=="
+      },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Transitive",
         "resolved": "10.0.0",
@@ -55,6 +54,11 @@
         "resolved": "2.0.0",
         "contentHash": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw=="
       },
+      "Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.1",
+        "contentHash": "ppPFpBcvxdsfUonNcvITKqLl3bqxWbDCZIzDWHzjpdAHRFfZe0Dw9HmA0+za13IdyrgJwpkDTDA9fHaxOrt20A=="
+      },
       "Oxpecker.ViewEngine": {
         "type": "Transitive",
         "resolved": "2.0.0",
@@ -69,6 +73,32 @@
         "contentHash": "sp/8J8jyB/Ns4HoC73f8BtsAJKw+OZ27D97VgQlBs1taMlzKplKuaxhQ6ErswDVUHej2WgIfm4wLWy/3wxYSFA==",
         "dependencies": {
           "FSharp.Core": "4.5.4"
+        }
+      },
+      "elmishtodos.shared": {
+        "type": "Project",
+        "dependencies": {
+          "Thoth.Json.Net": "[12.0.0, )"
+        }
+      },
+      "Fable.Core": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0, )",
+        "resolved": "3.1.6",
+        "contentHash": "w6M1F0zoLk4kTFc1Lx6x1Ft6BD3QwRe0eaLiinAqbjVkcF+iK+NiXGJO+a6q9RAF9NCg0vI48Xku7aNeqG4JVw==",
+        "dependencies": {
+          "FSharp.Core": "4.7.1"
+        }
+      },
+      "Thoth.Json.Net": {
+        "type": "CentralTransitive",
+        "requested": "[12.0.0, )",
+        "resolved": "12.0.0",
+        "contentHash": "n2YyONYdWCFS4Pu7wrqgV/l5tPuN+t3gxEfs/2RwqCiQkRnbgKs9dK61zHeZS5YganAoFbxLSwbaNL7SvSrS9g==",
+        "dependencies": {
+          "FSharp.Core": "4.7.2",
+          "Fable.Core": "3.1.6",
+          "Newtonsoft.Json": "13.0.1"
         }
       }
     }
