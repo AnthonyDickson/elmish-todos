@@ -27,8 +27,6 @@ make client-watch
 make client-build
 ```
 
-A `make` (or `make build`) runs the default `build` target.
-
 ### Development Environment
 
 The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), and `dprint` (markdown formatting):
