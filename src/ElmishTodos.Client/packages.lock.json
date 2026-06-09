@@ -47,7 +47,7 @@
         "type": "Direct",
         "requested": "[10.1.300, )",
         "resolved": "10.1.300",
-        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
+        "contentHash": "RyvSrBEw14zHD/q+PHWw/8SZV/dX95maclmm4fgP0iVexzNtwQ6XGHLzv2wP+naw3LlLEGI4jW+QaW2T9zqKiA=="
       },
       "Thoth.Json": {
         "type": "Direct",
