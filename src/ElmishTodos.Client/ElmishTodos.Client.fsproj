@@ -13,11 +13,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
+    <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Fable.Core" />
     <PackageReference Include="Fable.Elmish" />
     <PackageReference Include="Feliz" />
     <PackageReference Include="Feliz.UseElmish" />
+    <PackageReference Include="Thoth.Fetch" />
+    <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
   </ItemGroup>
 
 </Project>

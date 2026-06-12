@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
+    <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Oxpecker" />
     <PackageReference Include="Oxpecker.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />

@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Thoth.Json.Net" Condition="'$(FABLE_COMPILER)' == ''" />
     <PackageReference Include="Thoth.Json"     Condition="'$(FABLE_COMPILER)' != ''" />
   </ItemGroup>

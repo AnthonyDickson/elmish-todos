@@ -2,6 +2,12 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "FSharp.Core": {
+        "type": "Direct",
+        "requested": "[10.1.300, )",
+        "resolved": "10.1.300",
+        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
+      },
       "Oxpecker": {
         "type": "Direct",
         "requested": "[2.0.0, )",
@@ -41,11 +47,6 @@
           "Fable.Core": "3.1.6",
           "Newtonsoft.Json": "13.0.1"
         }
-      },
-      "FSharp.Core": {
-        "type": "Transitive",
-        "resolved": "10.0.101",
-        "contentHash": "mrS3J7cLtvXM3u3CmiaFq8oyBdlevzZY1VAAAbFk1gUDQtDEjUOybN5XpQglx5wAgJ0wLdDl6OSSfS7ZDFNcpA=="
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Transitive",
@@ -89,6 +90,7 @@
       "elmishtodos.shared": {
         "type": "Project",
         "dependencies": {
+          "FSharp.Core": "[10.1.300, )",
           "Thoth.Json.Net": "[12.0.0, )"
         }
       },
