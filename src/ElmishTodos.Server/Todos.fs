@@ -73,138 +73,8 @@ module Store =
     let delete (todoStore : Store) (todoId : Guid) : Async<bool> =
         todoStore.PostAndAsyncReply (fun reply -> Delete (todoId, reply))
 
-module Handlers =
+module Api =
     open System
-    open System.IO
-    open System.Text
-
-    open Oxpecker
-    open Microsoft.AspNetCore.Http
-
-    open ElmishTodos.Shared.ApiError
-    open ElmishTodos.Shared.Coders
-    open ElmishTodos.Shared.Todo
-    open ElmishTodos.Server.Middleware
-    open Models
-
-    let private writeJson (ctx : HttpContext) (object : 'T) =
-        task {
-            ctx.Response.ContentType <- "application/json; charset=utf-8"
-            return! ctx.Response.WriteAsync (Encode.toString object)
-        }
-
-    let private readJson (ctx : HttpContext) =
-        task {
-            use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
-            let! body = reader.ReadToEndAsync ()
-            return Decode.fromString body
-        }
-
-    /// GET /todos — list all items
-    let getTodos (store : Store) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! items = Store.getAll store
-                return! writeJson ctx items
-            }
-
-    /// GET /todos/{id} — get one item
-    let getTodo (store : Store) (id : Guid) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! todo = Store.get store id
-
-                match todo with
-                | Some item -> return! writeJson ctx item
-                | None -> return! Middleware.notFound $"Todo {id} not found" ctx
-            }
-
-    /// GET /private-todos — protected demo route
-    let getPrivateTodos (store : Store) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! items = Store.getAll store
-                return! writeJson ctx items
-            }
-
-    /// POST /todos — create an item
-    let createTodo (store : Store) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! result: Result<Todo, string> = readJson ctx
-
-                match result with
-                | Ok todo ->
-                    if String.IsNullOrWhiteSpace todo.Title then
-                        ctx.SetStatusCode 400
-
-                        return!
-                            writeJson ctx {
-                                Error = "Validation Error"
-                                Details = "Title is required"
-                            }
-                    else
-                        Store.upsert store todo
-                        ctx.SetStatusCode 201
-                        return! writeJson ctx todo
-                | Error err ->
-                    ctx.SetStatusCode 400
-
-                    return!
-                        writeJson ctx {
-                            Error = "Validation Error"
-                            Details = err
-                        }
-            }
-
-    /// PUT /todos/{id} — replace an item
-    let updateTodo (store : Store) (id : Guid) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! result: Result<UpdateTodoRequest, string> = readJson ctx
-
-                match result with
-                | Ok req ->
-                    if String.IsNullOrWhiteSpace req.Title then
-                        ctx.SetStatusCode 400
-
-                        return!
-                            writeJson ctx {
-                                    Error = "Validation Error"
-                                    Details = "Title is required"
-                                }
-                    else
-                        let! updated = Store.update store id (req.Title.Trim ()) req.Completed
-
-                        match updated with
-                        | Some updated -> return! writeJson ctx updated
-                        | None -> return! Middleware.notFound $"Todo {id} not found" ctx
-                | Error err ->
-                    ctx.SetStatusCode 400
-
-                    return!
-                        writeJson ctx {
-                                Error = "Validation Error"
-                                Details = err
-                            }
-            }
-
-    /// DELETE /todos/{id} — remove an item
-    let deleteTodo (store : Store) (id : Guid) : EndpointHandler =
-        fun ctx ->
-            task {
-                let! deleted = Store.delete store id
-
-                if deleted then
-                    ctx.SetStatusCode 204
-                    return ()
-                else
-                    return! Middleware.notFound $"Todo {id} not found" ctx
-            }
-
-// TODO: Put routes under "/api"
-module Routes =
-    open Microsoft.OpenApi
     open System.Threading.Tasks
 
     open Oxpecker
@@ -212,21 +82,40 @@ module Routes =
 
     open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Todo
-    open ElmishTodos.Server.Auth
-    open ElmishTodos.Server.Middleware
     open Models
 
-    let private bearerRequirement () : OpenApiSecurityRequirement =
-        let schemeRef =
-            OpenApiSecuritySchemeReference ("bearerAuth", null, "SecuritySchemes")
+    module private Json =
+        open System.IO
+        open System.Text
 
-        let requirement = OpenApiSecurityRequirement ()
-        requirement[schemeRef] <- ResizeArray<string> ()
-        requirement
+        open Microsoft.AspNetCore.Http
 
-    let endpoints (store : Store) : Endpoint list = [
-        GET [
-            route "/todos" (Handlers.getTodos store)
+        open ElmishTodos.Shared.Coders
+
+        let write (ctx : HttpContext) (object : 'T) =
+            task {
+                ctx.Response.ContentType <- "application/json; charset=utf-8"
+                return! ctx.Response.WriteAsync (Encode.toString object)
+            }
+
+        let read (ctx : HttpContext) =
+            task {
+                use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
+                let! body = reader.ReadToEndAsync ()
+                return Decode.fromString body
+            }
+
+    module GetAll =
+        /// GET /todos — list all items
+        let handler (store : Store) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! items = Store.getAll store
+                    return! Json.write ctx items
+                }
+
+        let endpoint (store: Store) =
+            route "/api/todos" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [| ResponseBody typeof<Todo array> |],
@@ -238,7 +127,22 @@ module Routes =
                 )
             )
 
-            routef "/todos/{%O:guid}" (Handlers.getTodo store)
+    module Get =
+        open ElmishTodos.Server.Middleware
+
+        /// GET /todos/{id} — get one item
+        let handler (store : Store) (id : Guid) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! todo = Store.get store id
+
+                    match todo with
+                    | Some item -> return! Json.write ctx item
+                    | None -> return! Middleware.notFound $"Todo {id} not found" ctx
+                }
+
+        let endpoint (store: Store) =
+            routef "/todos/{%O:guid}" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -253,7 +157,30 @@ module Routes =
                 )
             )
 
-            route "/private-todos" (Middleware.requireAuthenticated >=> Handlers.getPrivateTodos store)
+    module GetPrivate =
+        open Microsoft.OpenApi
+
+        open ElmishTodos.Server.Auth
+        open ElmishTodos.Server.Middleware
+
+        let private bearerRequirement () : OpenApiSecurityRequirement =
+            let schemeRef =
+                OpenApiSecuritySchemeReference ("bearerAuth", null, "SecuritySchemes")
+
+            let requirement = OpenApiSecurityRequirement ()
+            requirement[schemeRef] <- ResizeArray<string> ()
+            requirement
+
+        /// GET /private-todos — protected demo route
+        let handler (store : Store) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! items = Store.getAll store
+                    return! Json.write ctx items
+                }
+
+        let endpoint (store: Store) =
+            route "/private-todos" (Middleware.requireAuthenticated >=> handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -268,10 +195,40 @@ module Routes =
                             Task.CompletedTask
                 )
             )
-        ]
 
-        POST [
-            route "/api/todos" (Handlers.createTodo store)
+    module Create =
+        /// POST /todos — create an item
+        let handler (store : Store) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! result: Result<Todo, string> = Json.read ctx
+
+                    match result with
+                    | Ok todo ->
+                        if String.IsNullOrWhiteSpace todo.Title then
+                            ctx.SetStatusCode 400
+
+                            return!
+                                Json.write ctx {
+                                    Error = "Validation Error"
+                                    Details = "Title is required"
+                                }
+                        else
+                            Store.upsert store todo
+                            ctx.SetStatusCode 201
+                            return! Json.write ctx todo
+                    | Error err ->
+                        ctx.SetStatusCode 400
+
+                        return!
+                            Json.write ctx {
+                                Error = "Validation Error"
+                                Details = err
+                            }
+                }
+
+        let endpoint (store: Store) =
+            route "/api/todos" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<Todo>,
@@ -286,44 +243,112 @@ module Routes =
                             Task.CompletedTask
                 )
             )
-        ]
 
-        PUT [
-            routef "/todos/{%O:guid}" (Handlers.updateTodo store)
-            |> addOpenApi (
-                OpenApiConfig (
-                    requestBody = RequestBody typeof<UpdateTodoRequest>,
-                    responseBodies = [|
-                        ResponseBody typeof<Todo>
-                        ResponseBody (typeof<ApiError>, statusCode = 400)
-                        ResponseBody (typeof<ApiError>, statusCode = 404)
-                    |],
-                    configureOperation =
-                        fun op _ _ ->
-                            op.Summary <- "Update a todo"
-                            op.Description <- "Replaces the title and completed flag of an existing todo."
-                            Task.CompletedTask
-                )
-            )
-        ]
+    module Update =
+        open ElmishTodos.Server.Middleware
 
-        DELETE [
-            routef "/todos/{%O:guid}" (Handlers.deleteTodo store)
-            |> addOpenApi (
-                OpenApiConfig (
-                    responseBodies = [|
-                        ResponseBody (typeof<unit>, statusCode = 204)
-                        ResponseBody (typeof<ApiError>, statusCode = 404)
-                    |],
-                    configureOperation =
-                        fun op _ _ ->
-                            op.Summary <- "Delete a todo"
-                            op.Description <- "Permanently removes a todo. Returns 204 on success."
-                            Task.CompletedTask
+        /// PUT /todos/{id} — replace an item
+        let handler (store : Store) (id : Guid) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! result: Result<UpdateTodoRequest, string> = Json.read ctx
+
+                    match result with
+                    | Ok req ->
+                        if String.IsNullOrWhiteSpace req.Title then
+                            ctx.SetStatusCode 400
+
+                            return!
+                                Json.write ctx {
+                                        Error = "Validation Error"
+                                        Details = "Title is required"
+                                    }
+                        else
+                            let! updated = Store.update store id (req.Title.Trim ()) req.Completed
+
+                            match updated with
+                            | Some updated -> return! Json.write ctx updated
+                            | None -> return! Middleware.notFound $"Todo {id} not found" ctx
+                    | Error err ->
+                        ctx.SetStatusCode 400
+
+                        return!
+                            Json.write ctx {
+                                    Error = "Validation Error"
+                                    Details = err
+                                }
+                }
+
+        let endpoint (store: Store) =
+            routef "/todos/{%O:guid}" (handler store)
+                |> addOpenApi (
+                    OpenApiConfig (
+                        requestBody = RequestBody typeof<UpdateTodoRequest>,
+                        responseBodies = [|
+                            ResponseBody typeof<Todo>
+                            ResponseBody (typeof<ApiError>, statusCode = 400)
+                            ResponseBody (typeof<ApiError>, statusCode = 404)
+                        |],
+                        configureOperation =
+                            fun op _ _ ->
+                                op.Summary <- "Update a todo"
+                                op.Description <- "Replaces the title and completed flag of an existing todo."
+                                Task.CompletedTask
+                    )
                 )
-            )
+
+    module Delete =
+        open ElmishTodos.Server.Middleware
+
+        /// DELETE /todos/{id} — remove an item
+        let handler (store : Store) (id : Guid) : EndpointHandler =
+            fun ctx ->
+                task {
+                    let! deleted = Store.delete store id
+
+                    if deleted then
+                        ctx.SetStatusCode 204
+                        return ()
+                    else
+                        return! Middleware.notFound $"Todo {id} not found" ctx
+                }
+
+        let endpoint (store: Store) =
+            routef "/todos/{%O:guid}" (handler store)
+                |> addOpenApi (
+                    OpenApiConfig (
+                        responseBodies = [|
+                            ResponseBody (typeof<unit>, statusCode = 204)
+                            ResponseBody (typeof<ApiError>, statusCode = 404)
+                        |],
+                        configureOperation =
+                            fun op _ _ ->
+                                op.Summary <- "Delete a todo"
+                                op.Description <- "Permanently removes a todo. Returns 204 on success."
+                                Task.CompletedTask
+                    )
+                )
+
+    let endpoints (store: Store): Oxpecker.RoutingTypes.Endpoint seq =
+        [
+            GET [
+                GetAll.endpoint store
+                Get.endpoint store
+                GetPrivate.endpoint store
+            ]
+
+            POST [
+                Create.endpoint store
+            ]
+
+            PUT [
+                Update.endpoint store
+            ]
+
+            DELETE [
+                Delete.endpoint store
+            ]
         ]
-    ]
 
 /// This module defines the public API of the Todos feature slice
 [<RequireQualifiedAccess>]
@@ -331,4 +356,4 @@ module Todos =
     type Store = Models.Store
 
     let startStore = Store.start
-    let endpoints = Routes.endpoints
+    let endpoints = Api.endpoints
