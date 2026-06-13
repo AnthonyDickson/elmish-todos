@@ -41,7 +41,7 @@ module Api =
 
     /// <summary>Execute a get request as a promise.</summary>
     /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
-    let inline get (url : string) : Promise<ApiResult<'Data>> =
+    let inline get (url : string) : Promise<ApiResult<'Response>> =
         promise {
             let! response = fetch url [ Method HttpMethod.GET ]
             let! text = response.text ()
@@ -51,11 +51,27 @@ module Api =
 
     /// <summary>Execute a post request as a promise.</summary>
     /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
-    let inline post (url : string) (data : 'Data) : Promise<ApiResult<'Data>> =
+    let inline post (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
         promise {
             let! response =
                 fetch url [
                     Method HttpMethod.POST
+                    Body (data |> Encode.toString |> unbox)
+                    requestHeaders [ ContentType "application/json" ]
+                ]
+
+            let! text = response.text ()
+
+            return decodeResponse response text
+        }
+
+    /// <summary>Execute a put request as a promise.</summary>
+    /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
+    let inline put (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
+        promise {
+            let! response =
+                fetch url [
+                    Method HttpMethod.PUT
                     Body (data |> Encode.toString |> unbox)
                     requestHeaders [ ContentType "application/json" ]
                 ]

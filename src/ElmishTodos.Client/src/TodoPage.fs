@@ -57,6 +57,7 @@ module TodoPage =
         /// The client loaded todos from the API
         | ClientFetchedTodos of ApiResult<Todo list>
         | ClientPostedTodo of ApiResult<Todo>
+        | ClientPutTodo of ApiResult<Todo>
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -115,6 +116,12 @@ module TodoPage =
         | ClientPostedTodo (ApiResult.Failure error) ->
             eprintfn $"Failed to post todo: {error}"
             model, Cmd.none
+        | ClientPutTodo (ApiResult.Success _) ->
+            printfn "Put todo successfully"
+            model, Cmd.none
+        | ClientPutTodo (ApiResult.Failure error) ->
+            eprintfn $"Failed to put todo: {error}"
+            model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
@@ -134,10 +141,25 @@ module TodoPage =
             else
                 { model with NewTodo = "" }, Cmd.none
         | UserToggledCompletedStatus id ->
-            let todos =
-                List.map (fun (todo : Todo) -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos
+            let updatedTodo =
+                List.tryFind (fun (todo : Todo) -> todo.Id = id) model.Todos
+                |> Option.map Todo.toggleComplete
 
-            { model with Todos = todos }, Cmd.none
+            match updatedTodo with
+            | Some updatedTodo ->
+                let todos =
+                    List.map (fun (todo : Todo) -> if todo.Id = updatedTodo.Id then updatedTodo else todo) model.Todos
+
+                { model with Todos = todos },
+                Cmd.OfPromise.either
+                    (Api.put $"/api/todos/%O{id}")
+                    {
+                        UpdateTodoRequest.Completed = updatedTodo.Completed
+                        UpdateTodoRequest.Title = updatedTodo.Title
+                    }
+                    ClientPutTodo
+                    (ApiResult.ofException >> ClientPutTodo)
+            | None -> model, Cmd.none
         | UserEnteredEditMode id ->
             let updatedModel =
                 List.tryFind (fun (todo : Todo) -> todo.Id = id) model.Todos
