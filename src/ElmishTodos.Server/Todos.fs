@@ -341,7 +341,7 @@ module Api =
                 Create.endpoint store
             ]
 
-            PUT [
+            PATCH [
                 Update.endpoint store
             ]
 

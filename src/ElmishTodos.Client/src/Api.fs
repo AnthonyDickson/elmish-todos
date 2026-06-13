@@ -80,3 +80,19 @@ module Api =
 
             return decodeResponse response text
         }
+
+    /// <summary>Execute a patch request as a promise.</summary>
+    /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
+    let inline patch (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
+        promise {
+            let! response =
+                fetch url [
+                    Method HttpMethod.PATCH
+                    Body (data |> Encode.toString |> unbox)
+                    requestHeaders [ ContentType "application/json" ]
+                ]
+
+            let! text = response.text ()
+
+            return decodeResponse response text
+        }

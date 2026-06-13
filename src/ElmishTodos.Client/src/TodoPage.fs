@@ -177,11 +177,10 @@ module TodoPage =
             { model with EditState = nextEditState }, Cmd.none
         | UserExitedEditMode -> { model with EditState = None }, Cmd.none
         | UserSubmittedEditedTodo ->
-            match model.EditState with
-            | Some { Id = id; NewTitle = newTitle } ->
-                let newTitle = newTitle.Trim ()
-
-                if newTitle.Length > 0 then
+            let applyEdit id newTitle =
+                model.Todos
+                |> List.tryFind (fun (todo : Todo) -> todo.Id = id)
+                |> Option.map (fun todo ->
                     let todos =
                         List.map
                             (fun (todo : Todo) ->
@@ -196,11 +195,25 @@ module TodoPage =
                             EditState = None
                             Todos = todos
                     },
-                    Cmd.none
+                    Cmd.OfPromise.either
+                        (Api.patch $"/api/todos/%O{id}")
+                        {
+                            UpdateTodoRequest.Completed = todo.Completed
+                            UpdateTodoRequest.Title = newTitle
+                        }
+                        ClientPutTodo
+                        (ApiResult.ofException >> ClientPutTodo))
+                |> Option.defaultValue ({ model with EditState = None }, Cmd.none)
+
+            match model.EditState with
+            | Some { Id = id; NewTitle = newTitle } ->
+                let newTitle = newTitle.Trim ()
+
+                if newTitle.Length > 0 then
+                    applyEdit id newTitle
                 else
                     { model with EditState = None }, Cmd.ofMsg (UserDeletedTodo id)
-            | None -> model, Cmd.none
-
+            | None -> { model with EditState = None }, Cmd.none
         | UserDeletedTodo id ->
             let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
             { model with Todos = todos }, Cmd.none
