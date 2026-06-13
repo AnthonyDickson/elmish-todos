@@ -314,7 +314,7 @@ module Api =
                 }
 
         let endpoint (store: Store) =
-            routef "/todos/{%O:guid}" (handler store)
+            routef "/api/todos/{%O:guid}" (handler store)
                 |> addOpenApi (
                     OpenApiConfig (
                         responseBodies = [|

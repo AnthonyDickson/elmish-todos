@@ -57,7 +57,8 @@ module TodoPage =
         /// The client loaded todos from the API
         | ClientFetchedTodos of ApiResult<Todo list>
         | ClientPostedTodo of ApiResult<Todo>
-        | ClientPutTodo of ApiResult<Todo>
+        | ClientPatchTodo of ApiResult<Todo>
+        | ClientDeleteTodo of ApiResult<unit>
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -116,11 +117,17 @@ module TodoPage =
         | ClientPostedTodo (ApiResult.Failure error) ->
             eprintfn $"Failed to post todo: {error}"
             model, Cmd.none
-        | ClientPutTodo (ApiResult.Success _) ->
-            printfn "Put todo successfully"
+        | ClientPatchTodo (ApiResult.Success _) ->
+            printfn "Patch todo successfully"
             model, Cmd.none
-        | ClientPutTodo (ApiResult.Failure error) ->
-            eprintfn $"Failed to put todo: {error}"
+        | ClientPatchTodo (ApiResult.Failure error) ->
+            eprintfn $"Failed to patch todo: {error}"
+            model, Cmd.none
+        | ClientDeleteTodo (ApiResult.Success _) ->
+            printfn "Delete todo successfully"
+            model, Cmd.none
+        | ClientDeleteTodo (ApiResult.Failure error) ->
+            eprintfn $"Failed to delete todo: {error}"
             model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
@@ -152,13 +159,13 @@ module TodoPage =
 
                 { model with Todos = todos },
                 Cmd.OfPromise.either
-                    (Api.put $"/api/todos/%O{id}")
+                    (Api.patch $"/api/todos/%O{id}")
                     {
                         UpdateTodoRequest.Completed = updatedTodo.Completed
                         UpdateTodoRequest.Title = updatedTodo.Title
                     }
-                    ClientPutTodo
-                    (ApiResult.ofException >> ClientPutTodo)
+                    ClientPatchTodo
+                    (ApiResult.ofException >> ClientPatchTodo)
             | None -> model, Cmd.none
         | UserEnteredEditMode id ->
             let updatedModel =
@@ -201,8 +208,8 @@ module TodoPage =
                             UpdateTodoRequest.Completed = todo.Completed
                             UpdateTodoRequest.Title = newTitle
                         }
-                        ClientPutTodo
-                        (ApiResult.ofException >> ClientPutTodo))
+                        ClientPatchTodo
+                        (ApiResult.ofException >> ClientPatchTodo))
                 |> Option.defaultValue ({ model with EditState = None }, Cmd.none)
 
             match model.EditState with
@@ -216,10 +223,18 @@ module TodoPage =
             | None -> { model with EditState = None }, Cmd.none
         | UserDeletedTodo id ->
             let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
-            { model with Todos = todos }, Cmd.none
+
+            { model with Todos = todos },
+            Cmd.OfPromise.either
+                (fun () -> Api.delete $"/api/todos/%O{id}")
+                ()
+                ClientDeleteTodo
+                (ApiResult.ofException >> ClientDeleteTodo)
         | UserDeletedCompletedTodos ->
-            let todos = List.filter (fun (todo : Todo) -> not todo.Completed) model.Todos
-            { model with Todos = todos }, Cmd.none
+            let completed, active = model.Todos |> List.partition _.Completed
+            let cmds = completed |> List.map (fun todo -> Cmd.ofMsg (UserDeletedTodo todo.Id))
+
+            { model with Todos = active }, Cmd.batch cmds
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
 
     let updateWithLocalStorage (msg : Msg) (model : Model) : Model * Cmd<Msg> =

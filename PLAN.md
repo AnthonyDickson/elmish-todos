@@ -1,8 +1,5 @@
 # TODO
 
-- Persist todos to API
-  - Update
-  - Delete
 - Swap out todo store with SQLite database (Fumble)
 - Add password auth and sessions
   - zxcvbn for password strength

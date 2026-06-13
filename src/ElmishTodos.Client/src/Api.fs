@@ -96,3 +96,13 @@ module Api =
 
             return decodeResponse response text
         }
+
+    /// <summary>Execute a delete request as a promise.</summary>
+    /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
+    let inline delete (url : string) : Promise<ApiResult<unit>> =
+        promise {
+            let! response = fetch url [ Method HttpMethod.DELETE; requestHeaders [ ContentType "application/json" ] ]
+            let! text = response.text ()
+
+            return decodeResponse response text
+        }
