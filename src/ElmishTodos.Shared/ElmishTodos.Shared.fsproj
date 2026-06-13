@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="Coders.fs" />
+    <Compile Include="ApiError.fs" />
     <Compile Include="Todo.fs" />
   </ItemGroup>
 

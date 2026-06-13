@@ -1,3 +1,3 @@
-namespace ElmishTodos.Server.ApiError
+namespace ElmishTodos.Shared.ApiError
 
 type ApiError = { Error : string; Details : string }

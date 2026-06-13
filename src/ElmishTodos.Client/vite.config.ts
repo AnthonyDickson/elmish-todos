@@ -9,7 +9,18 @@ export default defineConfig({
               "**/*.fsproj", // Don't watch project files
               "dist/",
           ]
+      },
+      proxy: {
+        '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('proxy error', err);
+          });
+        },
       }
+    }
   },
   plugins: [
     tailwindcss(),

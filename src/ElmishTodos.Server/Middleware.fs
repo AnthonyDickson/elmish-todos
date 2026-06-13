@@ -3,9 +3,9 @@ namespace ElmishTodos.Server.Middleware
 module Middleware =
     open Oxpecker
     open Microsoft.AspNetCore.Http
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Coders
     open ElmishTodos.Server.Auth
-    open ElmishTodos.Server.ApiError
 
     let private writeJson (ctx : HttpContext) (error : ApiError) =
         task {

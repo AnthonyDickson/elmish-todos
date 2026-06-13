@@ -8,6 +8,7 @@
     <!-- Client -->
     <PackageVersion Include="Fable.Core" Version="5.0.0" />
     <PackageVersion Include="Fable.Elmish" Version="5.0.2" />
+    <PackageVersion Include="Fable.Fetch" Version="2.7.0" />
     <PackageVersion Include="Feliz" Version="3.3.3" />
     <PackageVersion Include="Feliz.UseElmish" Version="5.0.0" />
     <PackageVersion Include="Thoth.Fetch" Version="3.0.1" />

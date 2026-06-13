@@ -8,17 +8,18 @@
 
   <ItemGroup>
     <Compile Include="vendor/Router.fs" />
+    <Compile Include="src/Api.fs" />
     <Compile Include="src/TodoPage.fs" />
     <Compile Include="src/App.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fable.Fetch" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Fable.Core" />
     <PackageReference Include="Fable.Elmish" />
     <PackageReference Include="Feliz" />
     <PackageReference Include="Feliz.UseElmish" />
-    <PackageReference Include="Thoth.Fetch" />
     <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
   </ItemGroup>
 

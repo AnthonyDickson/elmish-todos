@@ -1,16 +1,20 @@
 namespace ElmishTodos.Client.TodoPage
 
-open System
-
-open Browser.WebStorage
-open Elmish
-open Feliz
-open Feliz.Router
-
-open ElmishTodos.Shared.Coders
-open ElmishTodos.Shared.Todo
-
 module TodoPage =
+    open System
+
+    open Browser.WebStorage
+    open Elmish
+    open Fable.Core.JS
+    open Feliz
+    open Feliz.Router
+    open Fetch
+
+    open ElmishTodos.Shared.ApiError
+    open ElmishTodos.Shared.Coders
+    open ElmishTodos.Shared.Todo
+    open ElmishTodos.Client.Api
+
     type Visibility =
         | All
         | Active
@@ -31,6 +35,7 @@ module TodoPage =
 
     type Msg =
         | ClientLoadedTodos of Todo list
+        | ClientPostedTodo of ApiResult<Todo>
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -74,22 +79,30 @@ module TodoPage =
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
+        | ClientPostedTodo (ApiResult.Success _) ->
+            printfn "Posted todo successfully"
+            model, Cmd.none
+        | ClientPostedTodo (ApiResult.Failure error) ->
+            eprintfn $"Failed to post todo: {error}"
+            model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
+            let todo = Todo.create title
 
-            let todos =
-                if title.Length > 0 then
-                    model.Todos @ [ Todo.create title ]
-                else
-                    model.Todos
-
-            {
-                model with
-                    NewTodo = ""
-                    Todos = todos
-            },
-            Cmd.none
+            if title.Length > 0 then
+                {
+                    model with
+                        NewTodo = ""
+                        Todos = model.Todos @ [ todo ]
+                },
+                Cmd.OfPromise.either
+                    (Api.post "/api/todos")
+                    todo
+                    ClientPostedTodo
+                    (ApiResult.ofException >> ClientPostedTodo)
+            else
+                { model with NewTodo = "" }, Cmd.none
         | UserToggledCompletedStatus id ->
             let todos =
                 List.map (fun (todo : Todo) -> if todo.Id = id then Todo.toggleComplete todo else todo) model.Todos

@@ -81,9 +81,9 @@ module Handlers =
     open Oxpecker
     open Microsoft.AspNetCore.Http
 
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Coders
     open ElmishTodos.Shared.Todo
-    open ElmishTodos.Server.ApiError
     open ElmishTodos.Server.Middleware
     open Models
 
@@ -131,11 +131,11 @@ module Handlers =
     let createTodo (store : Store) : EndpointHandler =
         fun ctx ->
             task {
-                let! result: Result<CreateTodoRequest, string> = readJson ctx
+                let! result: Result<Todo, string> = readJson ctx
 
                 match result with
-                | Ok req ->
-                    if String.IsNullOrWhiteSpace req.Title then
+                | Ok todo ->
+                    if String.IsNullOrWhiteSpace todo.Title then
                         ctx.SetStatusCode 400
 
                         return!
@@ -144,11 +144,9 @@ module Handlers =
                                 Details = "Title is required"
                             }
                     else
-                        let item = Todo.create (req.Title.Trim ())
-
-                        Store.upsert store item
+                        Store.upsert store todo
                         ctx.SetStatusCode 201
-                        return! writeJson ctx item
+                        return! writeJson ctx todo
                 | Error err ->
                     ctx.SetStatusCode 400
 
@@ -212,9 +210,9 @@ module Routes =
     open Oxpecker
     open Oxpecker.OpenApi
 
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Todo
     open ElmishTodos.Server.Auth
-    open ElmishTodos.Server.ApiError
     open ElmishTodos.Server.Middleware
     open Models
 
@@ -273,10 +271,10 @@ module Routes =
         ]
 
         POST [
-            route "/todos" (Handlers.createTodo store)
+            route "/api/todos" (Handlers.createTodo store)
             |> addOpenApi (
                 OpenApiConfig (
-                    requestBody = RequestBody typeof<CreateTodoRequest>,
+                    requestBody = RequestBody typeof<Todo>,
                     responseBodies = [|
                         ResponseBody (typeof<Todo>, statusCode = 201)
                         ResponseBody (typeof<ApiError>, statusCode = 400)

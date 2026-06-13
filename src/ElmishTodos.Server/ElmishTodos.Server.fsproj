@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <Compile Include="Auth.fs" />
-    <Compile Include="ApiError.fs" />
     <Compile Include="Middleware.fs" />
     <Compile Include="OpenApi.fs" />
     <Compile Include="Todos.fs" />
