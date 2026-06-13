@@ -20,6 +20,35 @@ module Api =
 
     open ElmishTodos.Shared.Coders
 
+    let inline private decodeResponse (response : Response) (text : string) =
+        if response.Ok then
+            match Decode.fromString<'Data> text with
+            | Ok responseData -> ApiResult.Success responseData
+            | Error error ->
+                ApiResult.Failure {
+                    Error = "Decode Error"
+                    Details = error
+                }
+        else
+            match Decode.fromString<ApiError> text with
+            | Ok apiError -> ApiResult.Failure apiError
+            | Error error ->
+                ApiResult.Failure {
+                    Error = "Decode Error"
+                    Details = error
+                }
+
+
+    /// <summary>Execute a get request as a promise.</summary>
+    /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
+    let inline get (url : string) : Promise<ApiResult<'Data>> =
+        promise {
+            let! response = fetch url [ Method HttpMethod.GET ]
+            let! text = response.text ()
+
+            return decodeResponse response text
+        }
+
     /// <summary>Execute a post request as a promise.</summary>
     /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
     let inline post (url : string) (data : 'Data) : Promise<ApiResult<'Data>> =
@@ -33,21 +62,5 @@ module Api =
 
             let! text = response.text ()
 
-            return
-                if response.Ok then
-                    match Decode.fromString<'Data> text with
-                    | Ok responseData -> ApiResult.Success responseData
-                    | Error error ->
-                        ApiResult.Failure {
-                            Error = "Decode Error"
-                            Details = error
-                        }
-                else
-                    match Decode.fromString<ApiError> text with
-                    | Ok apiError -> ApiResult.Failure apiError
-                    | Error error ->
-                        ApiResult.Failure {
-                            Error = "Decode Error"
-                            Details = error
-                        }
+            return decodeResponse response text
         }

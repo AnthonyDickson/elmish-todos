@@ -21,19 +21,3 @@ type Todo = {
 
 /// <summary>Payload for updating an existing todo item.</summary>
 type UpdateTodoRequest = { Title : string; Completed : bool }
-
-[<RequireQualifiedAccess>]
-module Todo =
-    let create (title : string) = {
-        Id = Guid.CreateVersion7 ()
-        Title = title
-        Completed = false
-        CreatedAt = DateTime.UtcNow
-    }
-
-    let complete (todo : Todo) = { todo with Completed = true }
-
-    let toggleComplete (todo : Todo) = {
-        todo with
-            Completed = not todo.Completed
-    }

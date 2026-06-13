@@ -1,5 +1,23 @@
 namespace ElmishTodos.Client.TodoPage
 
+[<RequireQualifiedAccess>]
+module private Todo =
+    open System
+
+    open ElmishTodos.Shared.Todo
+
+    let create (title : string) = {
+        Id = Guid.CreateVersion7 ()
+        Title = title
+        Completed = false
+        CreatedAt = DateTime.UtcNow
+    }
+
+    let toggleComplete (todo : Todo) = {
+        todo with
+            Completed = not todo.Completed
+    }
+
 module TodoPage =
     open System
 
@@ -34,7 +52,10 @@ module TodoPage =
     }
 
     type Msg =
+        /// The client loaded todos from local storage
         | ClientLoadedTodos of Todo list
+        /// The client loaded todos from the API
+        | ClientFetchedTodos of ApiResult<Todo list>
         | ClientPostedTodo of ApiResult<Todo>
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
@@ -57,7 +78,12 @@ module TodoPage =
             EditState = None
         }
 
-        model, Cmd.none
+        model,
+        Cmd.OfPromise.either
+            (fun () -> Api.get "/api/todos")
+            ()
+            ClientFetchedTodos
+            (ApiResult.ofException >> ClientFetchedTodos)
 
     let initWithLocalStorage () : Model * Cmd<Msg> =
         let model, cmd = init ()
@@ -79,6 +105,10 @@ module TodoPage =
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
+        | ClientFetchedTodos (ApiResult.Success todos) -> { model with Todos = todos }, Cmd.none
+        | ClientFetchedTodos (ApiResult.Failure error) ->
+            eprintfn $"Failed to get todo: {error}"
+            model, Cmd.none
         | ClientPostedTodo (ApiResult.Success _) ->
             printfn "Posted todo successfully"
             model, Cmd.none
