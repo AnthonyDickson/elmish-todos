@@ -108,26 +108,14 @@ module TodoPage =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
         | ClientFetchedTodos (ApiResult.Success todos) -> { model with Todos = todos }, Cmd.none
-        | ClientFetchedTodos (ApiResult.Failure error) ->
-            eprintfn $"Failed to get todo: {error}"
-            model, Cmd.none
-        | ClientPostedTodo (ApiResult.Success _) ->
-            printfn "Posted todo successfully"
-            model, Cmd.none
-        | ClientPostedTodo (ApiResult.Failure error) ->
-            eprintfn $"Failed to post todo: {error}"
-            model, Cmd.none
-        | ClientPatchTodo (ApiResult.Success _) ->
-            printfn "Patch todo successfully"
-            model, Cmd.none
-        | ClientPatchTodo (ApiResult.Failure error) ->
-            eprintfn $"Failed to patch todo: {error}"
-            model, Cmd.none
-        | ClientDeleteTodo (ApiResult.Success _) ->
-            printfn "Delete todo successfully"
-            model, Cmd.none
+        | ClientPostedTodo (ApiResult.Success _)
+        | ClientPatchTodo (ApiResult.Success _)
+        | ClientDeleteTodo (ApiResult.Success _) -> model, Cmd.none
+        | ClientFetchedTodos (ApiResult.Failure error)
+        | ClientPostedTodo (ApiResult.Failure error)
+        | ClientPatchTodo (ApiResult.Failure error)
         | ClientDeleteTodo (ApiResult.Failure error) ->
-            eprintfn $"Failed to delete todo: {error}"
+            eprintfn $"%O{error}"
             model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
