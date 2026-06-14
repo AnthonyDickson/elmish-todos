@@ -23,12 +23,9 @@ module TodoPage =
 
     open Browser.WebStorage
     open Elmish
-    open Fable.Core.JS
     open Feliz
     open Feliz.Router
-    open Fetch
 
-    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Coders
     open ElmishTodos.Shared.Todo
     open ElmishTodos.Client.Api
@@ -107,14 +104,14 @@ module TodoPage =
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
-        | ClientFetchedTodos (ApiResult.Success todos) -> { model with Todos = todos }, Cmd.none
-        | ClientPostedTodo (ApiResult.Success _)
-        | ClientPatchTodo (ApiResult.Success _)
-        | ClientDeleteTodo (ApiResult.Success _) -> model, Cmd.none
-        | ClientFetchedTodos (ApiResult.Failure error)
-        | ClientPostedTodo (ApiResult.Failure error)
-        | ClientPatchTodo (ApiResult.Failure error)
-        | ClientDeleteTodo (ApiResult.Failure error) ->
+        | ClientFetchedTodos (Success todos) -> { model with Todos = todos }, Cmd.none
+        | ClientPostedTodo (Success _)
+        | ClientPatchTodo (Success _)
+        | ClientDeleteTodo (Success _) -> model, Cmd.none
+        | ClientFetchedTodos (Failure error)
+        | ClientPostedTodo (Failure error)
+        | ClientPatchTodo (Failure error)
+        | ClientDeleteTodo (Failure error) ->
             eprintfn $"%O{error}"
             model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none

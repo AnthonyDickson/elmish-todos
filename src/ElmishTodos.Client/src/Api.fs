@@ -8,7 +8,7 @@ type ApiResult<'T> =
 
 module ApiResult =
     let ofException (error : exn) : ApiResult<'T> =
-        ApiResult.Failure {
+        Failure {
             Error = "Fetch Failed"
             Details = error.Message
         }
@@ -23,17 +23,17 @@ module Api =
     let inline private decodeResponse (response : Response) (text : string) =
         if response.Ok then
             match Decode.fromString<'Data> text with
-            | Ok responseData -> ApiResult.Success responseData
+            | Ok responseData -> Success responseData
             | Error error ->
-                ApiResult.Failure {
+                Failure {
                     Error = "Decode Error"
                     Details = error
                 }
         else
             match Decode.fromString<ApiError> text with
-            | Ok apiError -> ApiResult.Failure apiError
+            | Ok apiError -> Failure apiError
             | Error error ->
-                ApiResult.Failure {
+                Failure {
                     Error = "Decode Error"
                     Details = error
                 }
