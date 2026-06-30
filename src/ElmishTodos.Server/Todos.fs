@@ -171,6 +171,14 @@ module Api =
             requirement[schemeRef] <- ResizeArray<string> ()
             requirement
 
+        let private oauthRequirement () : OpenApiSecurityRequirement =
+            let schemeRef =
+                OpenApiSecuritySchemeReference ("scalarOAuth2", null, "SecuritySchemes")
+
+            let requirement = OpenApiSecurityRequirement ()
+            requirement[schemeRef] <- ResizeArray [ "openid"; "profile"; "email" ]
+            requirement
+
         /// GET /private-todos — protected demo route
         let handler (store : Store) : EndpointHandler =
             fun ctx ->
@@ -191,7 +199,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "List private todos"
                             op.Description <- $"Protected demo route. Use Authorization: Bearer {Auth.DemoToken}"
-                            op.Security <- ResizeArray [ bearerRequirement () ]
+                            op.Security <- ResizeArray [ bearerRequirement (); oauthRequirement () ]
                             Task.CompletedTask
                 )
             )

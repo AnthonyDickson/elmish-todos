@@ -125,3 +125,21 @@ identity_providers:
         authorization_policy: 'one_factor'
         consent_mode: 'implicit'
         token_endpoint_auth_method: 'client_secret_basic'
+      - client_id: 'scalar-docs'
+        client_name: 'Scalar API Docs'
+        public: true
+        redirect_uris:
+          - 'http://localhost:5000/scalar/v1'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        response_modes:
+          - 'query'
+        authorization_policy: 'one_factor'
+        consent_mode: 'implicit'
+        token_endpoint_auth_method: 'none'

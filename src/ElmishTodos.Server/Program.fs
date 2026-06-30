@@ -6,6 +6,7 @@ open System.Threading.Tasks
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
@@ -46,6 +47,18 @@ let main (args : string array) : int =
                         Description = $"Demo bearer token. Use `{Auth.DemoToken}`."
                     )
 
+                if builder.Environment.IsDevelopment () then
+                    doc.Components.SecuritySchemes["scalarOAuth2"] <-
+                        OpenApiSecurityScheme (
+                            Type = SecuritySchemeType.OAuth2,
+                            Flows = OpenApiOAuthFlows (
+                                AuthorizationCode = OpenApiOAuthFlow (
+                                    AuthorizationUrl = System.Uri "https://127.0.0.1:9091/api/oidc/authorization",
+                                    TokenUrl = System.Uri "https://127.0.0.1:9091/api/oidc/token"
+                                )
+                            )
+                        )
+
                 Task.CompletedTask)
             |> ignore)
     |> ignore
@@ -59,7 +72,16 @@ let main (args : string array) : int =
             .WithTitle("ElmishTodos API")
             .WithTheme(ScalarTheme.DeepSpace)
             .WithDefaultHttpClient (ScalarTarget.Http, ScalarClient.Curl)
-        |> ignore)
+        |> ignore
+
+        if app.Environment.IsDevelopment () then
+            opts
+                .AddPreferredSecuritySchemes([| "scalarOAuth2" |])
+                .AddAuthorizationCodeFlow("scalarOAuth2", fun flow ->
+                    flow.ClientId <- "scalar-docs"
+                    flow.Pkce <- Pkce.Sha256
+                    flow.SelectedScopes <- [| "openid"; "profile"; "email" |])
+            |> ignore)
     |> ignore
 
     let todoEndpoints = Todos.startStore () |> Todos.endpoints

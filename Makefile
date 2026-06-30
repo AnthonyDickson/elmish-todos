@@ -4,7 +4,7 @@ server-build:
 	dotnet build src/ElmishTodos.Server/ElmishTodos.Server.fsproj
 
 server-watch:
-	dotnet watch run --project src/ElmishTodos.Server
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project src/ElmishTodos.Server
 
 format:
 	dotnet fantomas .
