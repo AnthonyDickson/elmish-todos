@@ -27,6 +27,53 @@ make client-watch
 make client-build
 ```
 
+### Authelia (OIDC Provider)
+
+The server uses OpenID Connect for authentication with [Authelia](https://www.authelia.com/) as the provider.
+In development, Authelia runs locally via Docker Compose with file-based users.
+
+**Start Authelia:**
+
+```bash
+docker compose up -d
+```
+
+Authelia will be available at `https://127.0.0.1:9091` (self-signed certificate).
+The OIDC discovery document is at
+`https://127.0.0.1:9091/.well-known/openid-configuration`.
+
+**Test user:**
+
+|          |                |
+| -------- | -------------- |
+| Username | `dev`          |
+| Password | `dev-password` |
+
+**OIDC client** (registered in `authelia/configuration.yml`):
+
+| Setting       | Value                               |
+| ------------- | ----------------------------------- |
+| Client ID     | `elmish-todos`                      |
+| Client Secret | `elmish-todos-dev-secret`           |
+| Redirect URI  | `http://localhost:5000/signin-oidc` |
+| Grant types   | `authorization_code`                |
+| Scopes        | `openid profile email`              |
+
+**Files:**
+
+```
+docker-compose.yml          # Authelia service
+authelia/
+  configuration.yml         # Server, session, OIDC, and file user backend config
+  users.yml                 # Dev user credentials (argon2 hashed)
+```
+
+**Stopping Authelia:**
+
+```bash
+docker compose down
+```
+
 ### Development Environment
 
 The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), and `dprint` (markdown formatting):

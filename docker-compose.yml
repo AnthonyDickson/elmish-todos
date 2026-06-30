@@ -1,0 +1,12 @@
+services:
+  authelia:
+    image: authelia/authelia:4.39.20
+    container_name: authelia
+    restart: unless-stopped
+    ports:
+      - '9091:9091'
+    volumes:
+      - ./authelia:/config
+      - ./authelia/certs:/config/certs
+    environment:
+      - TZ=UTC
