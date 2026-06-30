@@ -8,48 +8,54 @@
 
 ### Architecture
 
-Browser talks directly to the .NET server. The server is the OIDC Relying Party — Authelia is
-the OIDC Provider. After a one-time login redirect through Authelia, the server issues its own
-session cookie. Authelia is out of the request path for all subsequent requests.
+Two auth flows coexist:
+
+| Client          | Auth Type      | Flow                                                                         |
+| --------------- | -------------- | ---------------------------------------------------------------------------- |
+| SPA (browser)   | Session cookie | Server is confidential OIDC client → cookie after callback                   |
+| Scalar API docs | JWT bearer     | Scalar is public OIDC client → PKCE → access token → `Authorization: Bearer` |
+
+Server validates both: `AddCookie()` for the SPA, `AddJwtBearer()` for Scalar. Each scheme
+can independently satisfy `[<Authorize>]`.
 
 ```
 Browser ──→ .NET Server ──OIDC──→ Authelia
-              │                       │
-        session cookie         OIDC provider
+(Scalar)       │                       │
+        cookie + bearer         OIDC provider
 ```
 
-### What's removed
+### Done
 
-- `src/ElmishTodos.Server/Auth.fs` — deleted, OIDC handler from ASP.NET Core
-- `src/ElmishTodos.Server/Middleware.fs` — deleted, auth gating via `[<Authorize>]`
-- Demo bearer token — gone entirely
+- [x] `docker-compose.yml` — off-the-shelf `authelia/authelia:4.39.20`
+- [x] `authelia/configuration.yml` — TLS (self-signed), OIDC clients (`elmish-todos` + `scalar-docs`), file users, sessions
+- [x] `authelia/users.yml` — dev test user (`dev` / `dev-password`)
+- [x] `authelia/certs/` — self-signed cert for `127.0.0.1`
+- [x] Scalar OAuth2 PKCE integration — `scalar-docs` public client, dev-only UI config
+- [x] `Microsoft.AspNetCore.Authentication.OpenIdConnect` NuGet package added
+- [x] README documented
 
-### Server changes (`Program.fs`)
+### Remaining
 
-- `AddCookie()` + `AddOpenIdConnect()` from ASP.NET Core
-- Auth endpoints:
+#### Server
+
+- Remove `src/ElmishTodos.Server/Auth.fs` — replaced by ASP.NET Core OIDC + JWT handlers
+- Remove `src/ElmishTodos.Server/Middleware.fs` — auth gating via inline middleware
+- Create `appsettings.Development.json` pointing at local Authelia
+- Add `Microsoft.AspNetCore.Authentication.JwtBearer` NuGet package
+- Rewrite `Program.fs`:
+  - `AddCookie()` + `AddOpenIdConnect()` — SPA auth (cookie flow)
+  - `AddJwtBearer()` — Scalar auth (bearer flow), validates against Authelia JWKS
   - `GET /login` — challenge → redirects to Authelia
   - `GET /logout` — sign out of cookie + OIDC schemes
   - `GET /signin-oidc` — callback, handled automatically by `OpenIdConnectHandler`
-- Route groups protected with `[<Authorize>]`
-- OIDC config bound from `IConfiguration`
+  - Policy-based authorization accepting both cookie + bearer schemes
+- Replace `Middleware.requireAuthenticated` with inline auth guard in `Todos.fs`
 
-### NuGet additions
+#### Client
 
-- `Microsoft.AspNetCore.Authentication.OpenIdConnect`
+- `Api.fs` — 401 response → `window.location.assign("/login")`
 
-### Config
+#### Config
 
 - `appsettings.Development.json` — committed, points at local Authelia
 - `appsettings.json` — absent (prod supplies `Oidc__Authority`, `Oidc__ClientId`, `Oidc__ClientSecret` via env vars)
-
-### Client change (`Api.fs`)
-
-- 401 response → `window.location.assign("/login")`
-
-### Dev infra
-
-- `docker-compose.yml` — off-the-shelf `authelia/authelia` image only
-- `authelia/configuration.yml` — OIDC client registration, file-based users, sessions
-- `authelia/users.yml` — dev test users
-- Server runs bare-metal via `dotnet watch`
