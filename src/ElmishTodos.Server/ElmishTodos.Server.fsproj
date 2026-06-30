@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Oxpecker" />
