@@ -108,6 +108,8 @@ let main (args : string array) : int =
             |> ignore)
     |> ignore
 
+    let loginReturnUrl = builder.Configuration["Login:ReturnUrl"] |> Option.ofObj |> Option.defaultValue "/"
+
     let app = builder.Build ()
 
     app.MapOpenApi () |> ignore
@@ -139,15 +141,7 @@ let main (args : string array) : int =
                 if ctx.User.Identity.IsAuthenticated then
                     ctx.Response.Redirect "/"
                 else
-                    let returnUrl =
-                        let referer = ctx.Request.Headers.Referer.ToString ()
-
-                        if System.String.IsNullOrEmpty referer then
-                            "/"
-                        else
-                            referer
-
-                    let props = AuthenticationProperties (RedirectUri = returnUrl)
+                    let props = AuthenticationProperties (RedirectUri = loginReturnUrl)
 
                     return! ctx.ChallengeAsync (oidcScheme, props)
             }
