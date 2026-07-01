@@ -11,6 +11,7 @@ module ApiResult =
         Failure {
             Error = "Fetch Failed"
             Details = error.Message
+            StatusCode = None
         }
 
 /// Helpers for interacting with the API
@@ -21,6 +22,8 @@ module Api =
     open ElmishTodos.Shared.Coders
 
     let inline private decodeResponse (response : Response) (text : string) =
+        let statusCode = Some response.Status
+
         if response.Ok then
             match Decode.fromString<'Data> text with
             | Ok responseData -> Success responseData
@@ -28,6 +31,7 @@ module Api =
                 Failure {
                     Error = "Decode Error"
                     Details = error
+                    StatusCode = statusCode
                 }
         else
             match Decode.fromString<ApiError> text with
@@ -36,6 +40,7 @@ module Api =
                 Failure {
                     Error = "Decode Error"
                     Details = error
+                    StatusCode = statusCode
                 }
 
 
@@ -43,7 +48,7 @@ module Api =
     /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
     let inline get (url : string) : Promise<ApiResult<'Response>> =
         promise {
-            let! response = fetch url [ Method HttpMethod.GET ]
+            let! response = fetchUnsafe url [ Method HttpMethod.GET ]
             let! text = response.text ()
 
             return decodeResponse response text
@@ -54,7 +59,7 @@ module Api =
     let inline post (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
         promise {
             let! response =
-                fetch url [
+                fetchUnsafe url [
                     Method HttpMethod.POST
                     Body (data |> Encode.toString |> unbox)
                     requestHeaders [ ContentType "application/json" ]
@@ -70,7 +75,7 @@ module Api =
     let inline put (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
         promise {
             let! response =
-                fetch url [
+                fetchUnsafe url [
                     Method HttpMethod.PUT
                     Body (data |> Encode.toString |> unbox)
                     requestHeaders [ ContentType "application/json" ]
@@ -86,7 +91,7 @@ module Api =
     let inline patch (url : string) (data : 'Data) : Promise<ApiResult<'Response>> =
         promise {
             let! response =
-                fetch url [
+                fetchUnsafe url [
                     Method HttpMethod.PATCH
                     Body (data |> Encode.toString |> unbox)
                     requestHeaders [ ContentType "application/json" ]
@@ -101,7 +106,9 @@ module Api =
     /// <remarks>This function is inlined for Fable to resolve the generic type</remarks>
     let inline delete (url : string) : Promise<ApiResult<unit>> =
         promise {
-            let! response = fetch url [ Method HttpMethod.DELETE; requestHeaders [ ContentType "application/json" ] ]
+            let! response =
+                fetchUnsafe url [ Method HttpMethod.DELETE; requestHeaders [ ContentType "application/json" ] ]
+
             let! text = response.text ()
 
             return decodeResponse response text

@@ -21,6 +21,7 @@ module private Todo =
 module TodoPage =
     open System
 
+    open Browser.Dom
     open Browser.WebStorage
     open Elmish
     open Feliz
@@ -112,8 +113,12 @@ module TodoPage =
         | ClientPostedTodo (Failure error)
         | ClientPatchedTodo (Failure error)
         | ClientDeletedTodo (Failure error) ->
-            eprintfn $"%O{error}"
-            model, Cmd.none
+            eprintfn "ApiError: Error='%s' Details='%s' StatusCode=%A" error.Error error.Details error.StatusCode
+            if error.StatusCode = Some 401 then
+                model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
+            else
+                eprintfn $"%O{error}"
+                model, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()

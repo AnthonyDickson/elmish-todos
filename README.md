@@ -12,6 +12,7 @@ All commands run from the repo root.
 make server-build
 
 # Run the server
+make server-run
 make server-watch
 
 # Format code (fantomas)
@@ -32,6 +33,19 @@ make client-build
 The server uses OpenID Connect for authentication with [Authelia](https://www.authelia.com/) as the provider.
 In development, Authelia runs locally via Docker Compose with file-based users.
 
+Two OIDC clients are registered — one for the SPA (cookie flow) and one for Scalar API docs (PKCE bearer flow):
+
+|              | SPA                                   | Scalar                                              |
+| ------------ | ------------------------------------- | --------------------------------------------------- |
+| Client ID    | `elmish-todos`                        | `scalar-docs`                                       |
+| Client type  | Confidential                          | Public (PKCE)                                       |
+| Auth flow    | Authorization code → session cookie   | Authorization code + PKCE → `Authorization: Bearer` |
+| Redirect URI | `http://localhost:5000/signin-oidc`   | `http://localhost:5000/scalar/v1`                   |
+| Scopes       | `openid profile email offline_access` | `openid profile email`                              |
+
+The server validates both: `AddCookie()` for the SPA's session and `AddJwtBearer()` for Scalar's tokens.
+Either scheme satisfies the auth requirement on protected endpoints.
+
 **Start Authelia:**
 
 ```bash
@@ -49,23 +63,38 @@ The OIDC discovery document is at
 | Username | `dev`          |
 | Password | `dev-password` |
 
-**OIDC client** (registered in `authelia/configuration.yml`):
+**Configuration:**
 
-| Setting       | Value                               |
-| ------------- | ----------------------------------- |
-| Client ID     | `elmish-todos`                      |
-| Client Secret | `elmish-todos-dev-secret`           |
-| Redirect URI  | `http://localhost:5000/signin-oidc` |
-| Grant types   | `authorization_code`                |
-| Scopes        | `openid profile email`              |
+| Setting             | Value                     | Source                         |
+| ------------------- | ------------------------- | ------------------------------ |
+| `Oidc:Authority`    | `https://127.0.0.1:9091`  | `appsettings.Development.json` |
+| `Oidc:ClientId`     | `elmish-todos`            | `appsettings.Development.json` |
+| `Oidc:ClientSecret` | `elmish-todos-dev-secret` | `appsettings.Development.json` |
+| `Oidc:CallbackPath` | `/signin-oidc`            | `appsettings.Development.json` |
+
+In production, these are supplied via environment variables (`Oidc__Authority`, `Oidc__ClientId`, `Oidc__ClientSecret`).
+
+**Auth endpoints** (on the .NET server, port 5000):
+
+| Endpoint           | Purpose                                                |
+| ------------------ | ------------------------------------------------------ |
+| `GET /login`       | Initiates OIDC challenge → redirects to Authelia login |
+| `GET /logout`      | Signs out of the cookie session                        |
+| `GET /signin-oidc` | OIDC callback (handled by `OpenIdConnectHandler`)      |
+
+**Protected endpoints** return `401` with `{ "error": "Unauthorized", "statusCode": 401 }`.
+The SPA redirects to `/login` on receipt.
 
 **Files:**
 
 ```
-docker-compose.yml          # Authelia service
+docker-compose.yml            # Authelia service
 authelia/
-  configuration.yml         # Server, session, OIDC, and file user backend config
-  users.yml                 # Dev user credentials (argon2 hashed)
+  configuration.yml           # TLS, session, OIDC clients, file user backend
+  users.yml                   # Dev user credentials (argon2 hashed)
+  certs/                      # Self-signed TLS cert + key for 127.0.0.1
+src/ElmishTodos.Server/
+  appsettings.Development.json  # OIDC config for dev
 ```
 
 **Stopping Authelia:**
