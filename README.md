@@ -28,10 +28,14 @@ make client-watch
 make client-build
 ```
 
-### Authelia (OIDC Provider)
+### Authelia (Dev-only OIDC Provider)
 
-The server uses OpenID Connect for authentication with [Authelia](https://www.authelia.com/) as the provider.
-In development, Authelia runs locally via Docker Compose with file-based users.
+> [!WARNING]
+> **Development only.** Authelia, its config, certs, secrets, and users are a local dev fixture.
+> In production, configure a real OIDC provider via the `Oidc__*` environment variables (see below).
+> None of the files under `authelia/`, `docker-compose.yml`, or `appsettings.Development.json` are used in production.
+
+The server uses OpenID Connect for authentication. In development, [Authelia](https://www.authelia.com/) acts as a local OIDC provider via Docker Compose with file-based users.
 
 Two OIDC clients are registered — one for the SPA (cookie flow) and one for Scalar API docs (PKCE bearer flow):
 
@@ -85,16 +89,16 @@ In production, these are supplied via environment variables (`Oidc__Authority`, 
 **Protected endpoints** return `401` with `{ "error": "Unauthorized", "statusCode": 401 }`.
 The SPA redirects to `/login` on receipt.
 
-**Files:**
+**Files (development only):**
 
 ```
-docker-compose.yml            # Authelia service
+docker-compose.yml            # Authelia service (dev only)
 authelia/
-  configuration.yml           # TLS, session, OIDC clients, file user backend
-  users.yml                   # Dev user credentials (argon2 hashed)
-  certs/                      # Self-signed TLS cert + key for 127.0.0.1
+  configuration.yml           # TLS, session, OIDC clients, file user backend (dev only)
+  users.yml                   # Dev user credentials, argon2 hashed (dev only)
+  certs/                      # Self-signed TLS cert + key for 127.0.0.1 (dev only)
 src/ElmishTodos.Server/
-  appsettings.Development.json  # OIDC config for dev
+  appsettings.Development.json  # OIDC config for dev (dev only)
 ```
 
 **Stopping Authelia:**
