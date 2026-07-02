@@ -5,6 +5,7 @@ open System.Threading.Tasks
 
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.OpenIdConnect
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
@@ -100,7 +101,21 @@ let main (args : string array) : int =
         .AddAuthentication(fun options ->
             options.DefaultScheme <- cookieScheme
             options.DefaultChallengeScheme <- oidcScheme)
-        .AddCookie(cookieScheme)
+        .AddCookie(
+            cookieScheme,
+            fun options ->
+                options.Cookie.SecurePolicy <-
+                    if builder.Environment.IsDevelopment () then
+                        CookieSecurePolicy.SameAsRequest
+                    else
+                        CookieSecurePolicy.Always
+
+                options.Cookie.SameSite <- SameSiteMode.Lax
+                options.Cookie.HttpOnly <- true
+                options.Cookie.IsEssential <- true
+                options.ExpireTimeSpan <- System.TimeSpan.FromHours 1
+                options.SlidingExpiration <- true
+        )
         .AddOpenIdConnect(
             oidcScheme,
             fun options ->
