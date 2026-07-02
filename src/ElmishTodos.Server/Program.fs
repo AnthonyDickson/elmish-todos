@@ -171,6 +171,13 @@ let main (args : string array) : int =
 
     app.MapGet (
         "/logout",
+        // Currently Authelia does not support RP-Initiated Logout
+        // (see https://github.com/authelia/authelia/pull/11660). Once released:
+        //   1. Remove the EndSessionUrl from appsettings.Development.json
+        //   2. Replace this handler with:
+        //        fun ctx -> task {
+        //            do! ctx.SignOutAsync cookieScheme
+        //            return! ctx.SignOutAsync (oidcScheme, AuthenticationProperties (RedirectUri = loginReturnUrl)) }
         fun (ctx : Microsoft.AspNetCore.Http.HttpContext) ->
             ctx.SignOutAsync (cookieScheme, AuthenticationProperties (RedirectUri = "/"))
     )

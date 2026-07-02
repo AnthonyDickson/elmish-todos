@@ -3,6 +3,7 @@
 - Review changes for:
   - [Security](#security-feedback)
   - Code style and organisation
+  - Document prod setup
 - Swap out todo store with SQLite database (Fumble)
 - Add favico and setup static file serving
 - Create Docker image for release deployment
@@ -10,13 +11,6 @@
 ## Security Feedback
 
 ### Medium severity
-
-#### 4. Logout doesn't terminate the OIDC session
-
-Program.fs:159-162 only calls SignOutAsync on the cookie scheme — it never signs out of
-Authelia. If the user's Authelia session is still alive, re-visiting the app will auto-log them
-in without any prompt. Add an OIDC sign-out callback or redirect to Authelia's /api/oidc/end-
-session endpoint.
 
 #### 5. No explicit cookie security defaults
 

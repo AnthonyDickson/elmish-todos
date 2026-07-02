@@ -67,6 +67,7 @@ module TodoPage =
         | UserDeletedTodo of Guid
         | UserDeletedCompletedTodos
         | UserChangedVisibility of Visibility
+        | UserClickedLogout
 
     let localStorageKey = "todomvc-elmish"
 
@@ -114,6 +115,7 @@ module TodoPage =
         | ClientPatchedTodo (Failure error)
         | ClientDeletedTodo (Failure error) ->
             eprintfn "ApiError: Error='%s' Details='%s' StatusCode=%A" error.Error error.Details error.StatusCode
+
             if error.StatusCode = Some 401 then
                 model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
             else
@@ -226,6 +228,7 @@ module TodoPage =
 
             { model with Todos = active }, Cmd.batch cmds
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
+        | UserClickedLogout -> model, Cmd.ofEffect (fun _ -> window.location.assign "/logout")
 
     let updateWithLocalStorage (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let model', cmd = update msg model
@@ -434,6 +437,16 @@ module TodoPage =
                         ]
                     else
                         Html.none
+                    Html.footer [
+                        prop.className "flex justify-end py-2 px-5 min-w-lg"
+                        prop.children [
+                            Html.button [
+                                prop.text "Logout"
+                                prop.className "text-sm text-gray-400 hover:text-gray-600"
+                                prop.onClick (fun _ -> dispatch UserClickedLogout)
+                            ]
+                        ]
+                    ]
                 ]
             )
         ]
