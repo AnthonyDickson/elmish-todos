@@ -79,12 +79,7 @@ module TodoPage =
             EditState = None
         }
 
-        model,
-        Cmd.OfPromise.either
-            (fun () -> Api.get "/api/todos")
-            ()
-            ClientFetchedTodos
-            (ApiResult.ofException >> ClientFetchedTodos)
+        model, Cmd.OfPromise.perform (fun () -> Api.get "/api/todos") () ClientFetchedTodos
 
     let initWithLocalStorage () : Model * Cmd<Msg> =
         let model, cmd = init ()
@@ -114,8 +109,6 @@ module TodoPage =
         | ClientPostedTodo (Failure error)
         | ClientPatchedTodo (Failure error)
         | ClientDeletedTodo (Failure error) ->
-            eprintfn "ApiError: Error='%s' Details='%s' StatusCode=%A" error.Error error.Details error.StatusCode
-
             if error.StatusCode = Some 401 then
                 model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
             else
@@ -132,11 +125,7 @@ module TodoPage =
                         NewTodo = ""
                         Todos = model.Todos @ [ todo ]
                 },
-                Cmd.OfPromise.either
-                    (Api.post "/api/todos")
-                    todo
-                    ClientPostedTodo
-                    (ApiResult.ofException >> ClientPostedTodo)
+                Cmd.OfPromise.perform (Api.post "/api/todos") todo ClientPostedTodo
             else
                 { model with NewTodo = "" }, Cmd.none
         | UserToggledCompletedStatus id ->
@@ -150,14 +139,13 @@ module TodoPage =
                     List.map (fun (todo : Todo) -> if todo.Id = updatedTodo.Id then updatedTodo else todo) model.Todos
 
                 { model with Todos = todos },
-                Cmd.OfPromise.either
+                Cmd.OfPromise.perform
                     (Api.patch $"/api/todos/%O{id}")
                     {
                         UpdateTodoRequest.Completed = updatedTodo.Completed
                         UpdateTodoRequest.Title = updatedTodo.Title
                     }
                     ClientPatchedTodo
-                    (ApiResult.ofException >> ClientPatchedTodo)
             | None -> model, Cmd.none
         | UserEnteredEditMode id ->
             let updatedModel =
@@ -194,14 +182,13 @@ module TodoPage =
                             EditState = None
                             Todos = todos
                     },
-                    Cmd.OfPromise.either
+                    Cmd.OfPromise.perform
                         (Api.patch $"/api/todos/%O{id}")
                         {
                             UpdateTodoRequest.Completed = todo.Completed
                             UpdateTodoRequest.Title = newTitle
                         }
-                        ClientPatchedTodo
-                        (ApiResult.ofException >> ClientPatchedTodo))
+                        ClientPatchedTodo)
                 |> Option.defaultValue ({ model with EditState = None }, Cmd.none)
 
             match model.EditState with
@@ -217,11 +204,7 @@ module TodoPage =
             let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
 
             { model with Todos = todos },
-            Cmd.OfPromise.either
-                (fun () -> Api.delete $"/api/todos/%O{id}")
-                ()
-                ClientDeletedTodo
-                (ApiResult.ofException >> ClientDeletedTodo)
+            Cmd.OfPromise.perform (fun () -> Api.delete $"/api/todos/%O{id}") () ClientDeletedTodo
         | UserDeletedCompletedTodos ->
             let completed, active = model.Todos |> List.partition _.Completed
             let cmds = completed |> List.map (fun todo -> Cmd.ofMsg (UserDeletedTodo todo.Id))
