@@ -49,11 +49,18 @@ module TodoPage =
         | Create of id : Guid
         | Delete of previousTodo : Todo
 
+    type Toast = {
+        Id : Guid
+        Title : string
+        Body : string
+    }
+
     type Model = {
         NewTodo : string
         Todos : Todo list
         Visibility : Visibility
         EditState : EditState option
+        Toasts : Toast list
     }
 
     type Msg =
@@ -62,6 +69,7 @@ module TodoPage =
         /// The client loaded todos from the API
         | ClientFetchedTodos of ApiResult<Todo list>
         | TodoActionFailed of TodoAction * ApiError
+        | ToastDismissed of Guid
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -83,6 +91,7 @@ module TodoPage =
             Todos = []
             Visibility = All
             EditState = None
+            Toasts = []
         }
 
         model, Cmd.OfPromise.perform (fun () -> Api.get "/api/todos") () ClientFetchedTodos
@@ -103,6 +112,70 @@ module TodoPage =
 
         model, cmds
 
+    let private rollback model action =
+        match action with
+        | UpdateCompleted (id, previousState) -> {
+            model with
+                Todos =
+                    List.map
+                        (fun (t : Todo) ->
+                            if t.Id = id then
+                                { t with Completed = previousState }
+                            else
+                                t)
+                        model.Todos
+          }
+        | UpdateTitle (id, previousTitle) -> {
+            model with
+                Todos =
+                    List.map (fun (t : Todo) -> if t.Id = id then { t with Title = previousTitle } else t) model.Todos
+          }
+        | Create id -> {
+            model with
+                Todos = List.filter (fun t -> t.Id <> id) model.Todos
+          }
+        | Delete previousTodo -> {
+            model with
+                // Since the todos use V7 UUIDs, we can reinsert the todo
+                // into its original index simply by sorting by ID.
+                Todos = previousTodo :: model.Todos |> List.sortBy _.Id
+          }
+
+    let private createToast model action =
+        match action with
+        | UpdateCompleted (id, previousState) ->
+            match List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos with
+            | Some todo ->
+                Some {
+                    Id = Guid.CreateVersion7 ()
+                    Title = "Could not sync changes"
+                    Body =
+                        sprintf
+                            "Reverted the todo status from '%s' to %s"
+                            todo.Title
+                            (if previousState then "completed" else "not completed")
+                }
+            | None -> None
+        | UpdateTitle (id, previousTitle) ->
+            List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos
+            |> Option.map (fun todo -> {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the todo title from '%s' to '%s'" todo.Title previousTitle
+            })
+        | Create id ->
+            List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos
+            |> Option.map (fun todo -> {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the creation of the todo '%s'" todo.Title
+            })
+        | Delete previousTodo ->
+            Some {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the deletion of the todo '%s'" previousTodo.Title
+            }
 
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
@@ -112,45 +185,49 @@ module TodoPage =
             if error.StatusCode = Some 401 then
                 model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
             else
-                eprintfn $"%O{error}"
-                model, Cmd.none
+                let toast = {
+                    Id = Guid.CreateVersion7 ()
+                    Title = "Could not sync todos"
+                    Body = "Falling back to local data"
+                }
+
+                let model = {
+                    model with
+                        Toasts = model.Toasts @ [ toast ]
+                }
+
+                let cmd =
+                    Cmd.ofEffect (fun dispatch ->
+                        window.setTimeout ((fun () -> dispatch (ToastDismissed toast.Id)), 5000, [])
+                        |> ignore)
+
+                model, cmd
         | TodoActionFailed (action, error) ->
-            let updatedModel =
-                match action with
-                | UpdateCompleted (id, previousState) -> {
-                    model with
-                        Todos =
-                            List.map
-                                (fun (t : Todo) ->
-                                    if t.Id = id then
-                                        { t with Completed = previousState }
-                                    else
-                                        t)
-                                model.Todos
-                  }
-                | UpdateTitle (id, previousTitle) -> {
-                    model with
-                        Todos =
-                            List.map
-                                (fun (t : Todo) -> if t.Id = id then { t with Title = previousTitle } else t)
-                                model.Todos
-                  }
-                | Create id -> {
-                    model with
-                        Todos = List.filter (fun t -> t.Id = id) model.Todos
-                  }
-                | Delete previousTodo -> {
-                    model with
-                        // Since the todos use V7 UUIDs, we can reinsert the todo
-                        // into its original index simply by sorting by ID.
-                        Todos = previousTodo :: model.Todos |> List.sortBy _.Id
-                  }
+            let updatedModel = rollback model action
 
             if error.StatusCode = Some 401 then
                 updatedModel, Cmd.ofEffect (fun _ -> window.location.assign "/login")
             else
-                eprintfn $"%O{error}"
-                updatedModel, Cmd.none
+                match createToast model action with
+                | Some toast ->
+                    let updatedModel = {
+                        updatedModel with
+                            Toasts = updatedModel.Toasts @ [ toast ]
+                    }
+
+                    let cmd =
+                        Cmd.ofEffect (fun dispatch ->
+                            window.setTimeout ((fun () -> dispatch (ToastDismissed toast.Id)), 5000, [])
+                            |> ignore)
+
+                    updatedModel, cmd
+                | None ->
+                    eprintfn "Could not create toast for:\n%O\n%O" model action
+                    updatedModel, Cmd.none
+        | ToastDismissed id ->
+            let updatedToasts = List.filter (fun toast -> toast.Id <> id) model.Toasts
+            let updatedModel = { model with Toasts = updatedToasts }
+            updatedModel, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
@@ -351,6 +428,53 @@ module TodoPage =
                 ]
             ]
 
+    let private viewToast dispatch toast =
+        Html.div [
+            prop.classes [
+                "pointer-events-auto"
+                "bg-gray-50"
+                "border"
+                "border-gray-200"
+                "border-l-4"
+                "border-l-amber-400/40"
+                "shadow-lg"
+                "p-4"
+                "max-w-sm"
+                "animate-[toast-in_0.3s_ease-out]"
+            ]
+            prop.role "alert"
+            prop.key toast.Id
+            prop.children [
+                Html.div [
+                    prop.classes [ "flex"; "justify-between"; "items-start"; "gap-3" ]
+                    prop.children [
+                        Html.div [
+                            Html.p [
+                                prop.classes [ "text-sm"; "font-medium"; "text-gray-600" ]
+                                prop.text toast.Title
+                            ]
+                            Html.p [ prop.classes [ "text-sm"; "text-gray-500"; "mt-1" ]; prop.text toast.Body ]
+                        ]
+                        Html.button [
+                            prop.classes [
+                                "text-gray-300"
+                                "hover:text-gray-500"
+                                "shrink-0"
+                                "text-lg"
+                                "leading-none"
+                                "cursor-pointer"
+                            ]
+                            prop.ariaLabel "Dismiss"
+                            prop.text "x"
+                            prop.onClick (fun _ -> dispatch (ToastDismissed toast.Id))
+                        ]
+
+                    ]
+                ]
+            ]
+        ]
+
+
     let view (model : Model) (dispatch : Msg -> unit) =
         let activeCount, completedCount =
             List.fold
@@ -380,7 +504,23 @@ module TodoPage =
 
         Html.div [
             prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
-            prop.children (
+            prop.children [
+                if not model.Toasts.IsEmpty then
+                    Html.div [
+                        prop.classes [
+                            "fixed"
+                            "top-4"
+                            "right-4"
+                            "z-50"
+                            "flex"
+                            "flex-col"
+                            "gap-2"
+                            "pointer-events-none"
+                        ]
+                        prop.children (List.map (viewToast dispatch) model.Toasts)
+
+                    ]
+
                 Html.main [
                     Html.header [
                         Html.h1 [
@@ -481,5 +621,5 @@ module TodoPage =
                         ]
                     ]
                 ]
-            )
+            ]
         ]
