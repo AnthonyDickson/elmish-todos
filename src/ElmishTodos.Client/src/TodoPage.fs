@@ -27,6 +27,7 @@ module TodoPage =
     open Feliz
     open Feliz.Router
 
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Coders
     open ElmishTodos.Shared.Todo
     open ElmishTodos.Client.Api
@@ -42,6 +43,12 @@ module TodoPage =
         NewTitle : string
     }
 
+    type TodoAction =
+        | UpdateCompleted of id : Guid * previousState : bool
+        | UpdateTitle of id : Guid * previousTitle : string
+        | Create of id : Guid
+        | Delete of previousTodo : Todo
+
     type Model = {
         NewTodo : string
         Todos : Todo list
@@ -54,9 +61,7 @@ module TodoPage =
         | ClientLoadedTodos of Todo list
         /// The client loaded todos from the API
         | ClientFetchedTodos of ApiResult<Todo list>
-        | ClientPostedTodo of ApiResult<Todo>
-        | ClientPatchedTodo of ApiResult<Todo>
-        | ClientDeletedTodo of ApiResult<unit>
+        | TodoActionFailed of TodoAction * ApiError
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -68,6 +73,7 @@ module TodoPage =
         | UserDeletedCompletedTodos
         | UserChangedVisibility of Visibility
         | UserClickedLogout
+        | NoOp
 
     let localStorageKey = "todomvc-elmish"
 
@@ -102,18 +108,49 @@ module TodoPage =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
         | ClientFetchedTodos (Success todos) -> { model with Todos = todos }, Cmd.none
-        | ClientPostedTodo (Success _)
-        | ClientPatchedTodo (Success _)
-        | ClientDeletedTodo (Success _) -> model, Cmd.none
-        | ClientFetchedTodos (Failure error)
-        | ClientPostedTodo (Failure error)
-        | ClientPatchedTodo (Failure error)
-        | ClientDeletedTodo (Failure error) ->
+        | ClientFetchedTodos (Failure error) ->
             if error.StatusCode = Some 401 then
                 model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
             else
                 eprintfn $"%O{error}"
                 model, Cmd.none
+        | TodoActionFailed (action, error) ->
+            let updatedModel =
+                match action with
+                | UpdateCompleted (id, previousState) -> {
+                    model with
+                        Todos =
+                            List.map
+                                (fun (t : Todo) ->
+                                    if t.Id = id then
+                                        { t with Completed = previousState }
+                                    else
+                                        t)
+                                model.Todos
+                  }
+                | UpdateTitle (id, previousTitle) -> {
+                    model with
+                        Todos =
+                            List.map
+                                (fun (t : Todo) -> if t.Id = id then { t with Title = previousTitle } else t)
+                                model.Todos
+                  }
+                | Create id -> {
+                    model with
+                        Todos = List.filter (fun t -> t.Id = id) model.Todos
+                  }
+                | Delete previousTodo -> {
+                    model with
+                        // Since the todos use V7 UUIDs, we can reinsert the todo
+                        // into its original index simply by sorting by ID.
+                        Todos = previousTodo :: model.Todos |> List.sortBy _.Id
+                  }
+
+            if error.StatusCode = Some 401 then
+                updatedModel, Cmd.ofEffect (fun _ -> window.location.assign "/login")
+            else
+                eprintfn $"%O{error}"
+                updatedModel, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
@@ -125,7 +162,9 @@ module TodoPage =
                         NewTodo = ""
                         Todos = model.Todos @ [ todo ]
                 },
-                Cmd.OfPromise.perform (Api.post "/api/todos") todo ClientPostedTodo
+                Cmd.OfPromise.perform (Api.post "/api/todos") todo (function
+                    | Success _ -> NoOp
+                    | Failure error -> TodoActionFailed (Create todo.Id, error))
             else
                 { model with NewTodo = "" }, Cmd.none
         | UserToggledCompletedStatus id ->
@@ -145,7 +184,10 @@ module TodoPage =
                         UpdateTodoRequest.Completed = updatedTodo.Completed
                         UpdateTodoRequest.Title = updatedTodo.Title
                     }
-                    ClientPatchedTodo
+                    (function
+                     | Success _ -> NoOp
+                     | Failure error ->
+                         TodoActionFailed (UpdateCompleted (updatedTodo.Id, not updatedTodo.Completed), error))
             | None -> model, Cmd.none
         | UserEnteredEditMode id ->
             let updatedModel =
@@ -188,7 +230,9 @@ module TodoPage =
                             UpdateTodoRequest.Completed = todo.Completed
                             UpdateTodoRequest.Title = newTitle
                         }
-                        ClientPatchedTodo)
+                        (function
+                         | Success _ -> NoOp
+                         | Failure error -> TodoActionFailed (UpdateTitle (todo.Id, todo.Title), error)))
                 |> Option.defaultValue ({ model with EditState = None }, Cmd.none)
 
             match model.EditState with
@@ -201,10 +245,15 @@ module TodoPage =
                     { model with EditState = None }, Cmd.ofMsg (UserDeletedTodo id)
             | None -> { model with EditState = None }, Cmd.none
         | UserDeletedTodo id ->
-            let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
+            match List.tryFind (fun (todo : Todo) -> todo.Id = id) model.Todos with
+            | Some todoToRemove ->
+                let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
 
-            { model with Todos = todos },
-            Cmd.OfPromise.perform (fun () -> Api.delete $"/api/todos/%O{id}") () ClientDeletedTodo
+                { model with Todos = todos },
+                Cmd.OfPromise.perform (fun () -> Api.delete $"/api/todos/%O{id}") () (function
+                    | Success _ -> NoOp
+                    | Failure error -> TodoActionFailed (Delete todoToRemove, error))
+            | None -> model, Cmd.none
         | UserDeletedCompletedTodos ->
             let completed, active = model.Todos |> List.partition _.Completed
             let cmds = completed |> List.map (fun todo -> Cmd.ofMsg (UserDeletedTodo todo.Id))
@@ -212,6 +261,7 @@ module TodoPage =
             { model with Todos = active }, Cmd.batch cmds
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
         | UserClickedLogout -> model, Cmd.ofEffect (fun _ -> window.location.assign "/logout")
+        | NoOp -> model, Cmd.none
 
     let updateWithLocalStorage (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let model', cmd = update msg model
