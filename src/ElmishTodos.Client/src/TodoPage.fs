@@ -21,11 +21,13 @@ module private Todo =
 module TodoPage =
     open System
 
+    open Browser.Dom
     open Browser.WebStorage
     open Elmish
     open Feliz
     open Feliz.Router
 
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Coders
     open ElmishTodos.Shared.Todo
     open ElmishTodos.Client.Api
@@ -41,11 +43,24 @@ module TodoPage =
         NewTitle : string
     }
 
+    type TodoAction =
+        | UpdateCompleted of id : Guid * previousState : bool
+        | UpdateTitle of id : Guid * previousTitle : string
+        | Create of id : Guid
+        | Delete of previousTodo : Todo
+
+    type Toast = {
+        Id : Guid
+        Title : string
+        Body : string
+    }
+
     type Model = {
         NewTodo : string
         Todos : Todo list
         Visibility : Visibility
         EditState : EditState option
+        Toasts : Toast list
     }
 
     type Msg =
@@ -53,9 +68,8 @@ module TodoPage =
         | ClientLoadedTodos of Todo list
         /// The client loaded todos from the API
         | ClientFetchedTodos of ApiResult<Todo list>
-        | ClientPostedTodo of ApiResult<Todo>
-        | ClientPatchedTodo of ApiResult<Todo>
-        | ClientDeletedTodo of ApiResult<unit>
+        | TodoActionFailed of TodoAction * ApiError
+        | ToastDismissed of Guid
         | UserChangedNewTodo of string
         | UserSubmittedNewTodo
         | UserToggledCompletedStatus of Guid
@@ -66,6 +80,8 @@ module TodoPage =
         | UserDeletedTodo of Guid
         | UserDeletedCompletedTodos
         | UserChangedVisibility of Visibility
+        | UserClickedLogout
+        | NoOp
 
     let localStorageKey = "todomvc-elmish"
 
@@ -75,14 +91,10 @@ module TodoPage =
             Todos = []
             Visibility = All
             EditState = None
+            Toasts = []
         }
 
-        model,
-        Cmd.OfPromise.either
-            (fun () -> Api.get "/api/todos")
-            ()
-            ClientFetchedTodos
-            (ApiResult.ofException >> ClientFetchedTodos)
+        model, Cmd.OfPromise.perform (fun () -> Api.get "/api/todos") () ClientFetchedTodos
 
     let initWithLocalStorage () : Model * Cmd<Msg> =
         let model, cmd = init ()
@@ -100,20 +112,122 @@ module TodoPage =
 
         model, cmds
 
+    let private rollback model action =
+        match action with
+        | UpdateCompleted (id, previousState) -> {
+            model with
+                Todos =
+                    List.map
+                        (fun (t : Todo) ->
+                            if t.Id = id then
+                                { t with Completed = previousState }
+                            else
+                                t)
+                        model.Todos
+          }
+        | UpdateTitle (id, previousTitle) -> {
+            model with
+                Todos =
+                    List.map (fun (t : Todo) -> if t.Id = id then { t with Title = previousTitle } else t) model.Todos
+          }
+        | Create id -> {
+            model with
+                Todos = List.filter (fun t -> t.Id <> id) model.Todos
+          }
+        | Delete previousTodo -> {
+            model with
+                // Since the todos use V7 UUIDs, we can reinsert the todo
+                // into its original index simply by sorting by ID.
+                Todos = previousTodo :: model.Todos |> List.sortBy _.Id
+          }
+
+    let private createToast model action =
+        match action with
+        | UpdateCompleted (id, previousState) ->
+            match List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos with
+            | Some todo ->
+                Some {
+                    Id = Guid.CreateVersion7 ()
+                    Title = "Could not sync changes"
+                    Body =
+                        sprintf
+                            "Reverted the todo status from '%s' to %s"
+                            todo.Title
+                            (if previousState then "completed" else "not completed")
+                }
+            | None -> None
+        | UpdateTitle (id, previousTitle) ->
+            List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos
+            |> Option.map (fun todo -> {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the todo title from '%s' to '%s'" todo.Title previousTitle
+            })
+        | Create id ->
+            List.tryFind (fun (t : Todo) -> t.Id = id) model.Todos
+            |> Option.map (fun todo -> {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the creation of the todo '%s'" todo.Title
+            })
+        | Delete previousTodo ->
+            Some {
+                Id = Guid.CreateVersion7 ()
+                Title = "Could not sync changes"
+                Body = sprintf "Reverted the deletion of the todo '%s'" previousTodo.Title
+            }
 
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
         | ClientLoadedTodos todos -> { model with Todos = todos }, Cmd.none
         | ClientFetchedTodos (Success todos) -> { model with Todos = todos }, Cmd.none
-        | ClientPostedTodo (Success _)
-        | ClientPatchedTodo (Success _)
-        | ClientDeletedTodo (Success _) -> model, Cmd.none
-        | ClientFetchedTodos (Failure error)
-        | ClientPostedTodo (Failure error)
-        | ClientPatchedTodo (Failure error)
-        | ClientDeletedTodo (Failure error) ->
-            eprintfn $"%O{error}"
-            model, Cmd.none
+        | ClientFetchedTodos (Failure error) ->
+            if error.StatusCode = Some 401 then
+                model, Cmd.ofEffect (fun _ -> window.location.assign "/login")
+            else
+                let toast = {
+                    Id = Guid.CreateVersion7 ()
+                    Title = "Could not sync todos"
+                    Body = "Falling back to local data"
+                }
+
+                let model = {
+                    model with
+                        Toasts = model.Toasts @ [ toast ]
+                }
+
+                let cmd =
+                    Cmd.ofEffect (fun dispatch ->
+                        window.setTimeout ((fun () -> dispatch (ToastDismissed toast.Id)), 5000, [])
+                        |> ignore)
+
+                model, cmd
+        | TodoActionFailed (action, error) ->
+            let updatedModel = rollback model action
+
+            if error.StatusCode = Some 401 then
+                updatedModel, Cmd.ofEffect (fun _ -> window.location.assign "/login")
+            else
+                match createToast model action with
+                | Some toast ->
+                    let updatedModel = {
+                        updatedModel with
+                            Toasts = updatedModel.Toasts @ [ toast ]
+                    }
+
+                    let cmd =
+                        Cmd.ofEffect (fun dispatch ->
+                            window.setTimeout ((fun () -> dispatch (ToastDismissed toast.Id)), 5000, [])
+                            |> ignore)
+
+                    updatedModel, cmd
+                | None ->
+                    eprintfn "Could not create toast for:\n%O\n%O" model action
+                    updatedModel, Cmd.none
+        | ToastDismissed id ->
+            let updatedToasts = List.filter (fun toast -> toast.Id <> id) model.Toasts
+            let updatedModel = { model with Toasts = updatedToasts }
+            updatedModel, Cmd.none
         | UserChangedNewTodo text -> { model with NewTodo = text }, Cmd.none
         | UserSubmittedNewTodo ->
             let title = model.NewTodo.Trim ()
@@ -125,11 +239,9 @@ module TodoPage =
                         NewTodo = ""
                         Todos = model.Todos @ [ todo ]
                 },
-                Cmd.OfPromise.either
-                    (Api.post "/api/todos")
-                    todo
-                    ClientPostedTodo
-                    (ApiResult.ofException >> ClientPostedTodo)
+                Cmd.OfPromise.perform (Api.post "/api/todos") todo (function
+                    | Success _ -> NoOp
+                    | Failure error -> TodoActionFailed (Create todo.Id, error))
             else
                 { model with NewTodo = "" }, Cmd.none
         | UserToggledCompletedStatus id ->
@@ -143,14 +255,16 @@ module TodoPage =
                     List.map (fun (todo : Todo) -> if todo.Id = updatedTodo.Id then updatedTodo else todo) model.Todos
 
                 { model with Todos = todos },
-                Cmd.OfPromise.either
+                Cmd.OfPromise.perform
                     (Api.patch $"/api/todos/%O{id}")
                     {
                         UpdateTodoRequest.Completed = updatedTodo.Completed
                         UpdateTodoRequest.Title = updatedTodo.Title
                     }
-                    ClientPatchedTodo
-                    (ApiResult.ofException >> ClientPatchedTodo)
+                    (function
+                     | Success _ -> NoOp
+                     | Failure error ->
+                         TodoActionFailed (UpdateCompleted (updatedTodo.Id, not updatedTodo.Completed), error))
             | None -> model, Cmd.none
         | UserEnteredEditMode id ->
             let updatedModel =
@@ -187,14 +301,15 @@ module TodoPage =
                             EditState = None
                             Todos = todos
                     },
-                    Cmd.OfPromise.either
+                    Cmd.OfPromise.perform
                         (Api.patch $"/api/todos/%O{id}")
                         {
                             UpdateTodoRequest.Completed = todo.Completed
                             UpdateTodoRequest.Title = newTitle
                         }
-                        ClientPatchedTodo
-                        (ApiResult.ofException >> ClientPatchedTodo))
+                        (function
+                         | Success _ -> NoOp
+                         | Failure error -> TodoActionFailed (UpdateTitle (todo.Id, todo.Title), error)))
                 |> Option.defaultValue ({ model with EditState = None }, Cmd.none)
 
             match model.EditState with
@@ -207,20 +322,23 @@ module TodoPage =
                     { model with EditState = None }, Cmd.ofMsg (UserDeletedTodo id)
             | None -> { model with EditState = None }, Cmd.none
         | UserDeletedTodo id ->
-            let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
+            match List.tryFind (fun (todo : Todo) -> todo.Id = id) model.Todos with
+            | Some todoToRemove ->
+                let todos = List.filter (fun (todo : Todo) -> todo.Id <> id) model.Todos
 
-            { model with Todos = todos },
-            Cmd.OfPromise.either
-                (fun () -> Api.delete $"/api/todos/%O{id}")
-                ()
-                ClientDeletedTodo
-                (ApiResult.ofException >> ClientDeletedTodo)
+                { model with Todos = todos },
+                Cmd.OfPromise.perform (fun () -> Api.delete $"/api/todos/%O{id}") () (function
+                    | Success _ -> NoOp
+                    | Failure error -> TodoActionFailed (Delete todoToRemove, error))
+            | None -> model, Cmd.none
         | UserDeletedCompletedTodos ->
             let completed, active = model.Todos |> List.partition _.Completed
             let cmds = completed |> List.map (fun todo -> Cmd.ofMsg (UserDeletedTodo todo.Id))
 
             { model with Todos = active }, Cmd.batch cmds
         | UserChangedVisibility visibility -> { model with Visibility = visibility }, Cmd.none
+        | UserClickedLogout -> model, Cmd.ofEffect (fun _ -> window.location.assign "/logout")
+        | NoOp -> model, Cmd.none
 
     let updateWithLocalStorage (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let model', cmd = update msg model
@@ -310,6 +428,53 @@ module TodoPage =
                 ]
             ]
 
+    let private viewToast dispatch toast =
+        Html.div [
+            prop.classes [
+                "pointer-events-auto"
+                "bg-gray-50"
+                "border"
+                "border-gray-200"
+                "border-l-4"
+                "border-l-amber-400/40"
+                "shadow-lg"
+                "p-4"
+                "max-w-sm"
+                "animate-[toast-in_0.3s_ease-out]"
+            ]
+            prop.role "alert"
+            prop.key toast.Id
+            prop.children [
+                Html.div [
+                    prop.classes [ "flex"; "justify-between"; "items-start"; "gap-3" ]
+                    prop.children [
+                        Html.div [
+                            Html.p [
+                                prop.classes [ "text-sm"; "font-medium"; "text-gray-600" ]
+                                prop.text toast.Title
+                            ]
+                            Html.p [ prop.classes [ "text-sm"; "text-gray-500"; "mt-1" ]; prop.text toast.Body ]
+                        ]
+                        Html.button [
+                            prop.classes [
+                                "text-gray-300"
+                                "hover:text-gray-500"
+                                "shrink-0"
+                                "text-lg"
+                                "leading-none"
+                                "cursor-pointer"
+                            ]
+                            prop.ariaLabel "Dismiss"
+                            prop.text "x"
+                            prop.onClick (fun _ -> dispatch (ToastDismissed toast.Id))
+                        ]
+
+                    ]
+                ]
+            ]
+        ]
+
+
     let view (model : Model) (dispatch : Msg -> unit) =
         let activeCount, completedCount =
             List.fold
@@ -339,7 +504,23 @@ module TodoPage =
 
         Html.div [
             prop.className "bg-gray-100 h-dvh flex h-screen justify-center"
-            prop.children (
+            prop.children [
+                if not model.Toasts.IsEmpty then
+                    Html.div [
+                        prop.classes [
+                            "fixed"
+                            "top-4"
+                            "right-4"
+                            "z-50"
+                            "flex"
+                            "flex-col"
+                            "gap-2"
+                            "pointer-events-none"
+                        ]
+                        prop.children (List.map (viewToast dispatch) model.Toasts)
+
+                    ]
+
                 Html.main [
                     Html.header [
                         Html.h1 [
@@ -429,6 +610,16 @@ module TodoPage =
                         ]
                     else
                         Html.none
+                    Html.footer [
+                        prop.className "flex justify-end py-2 px-5 min-w-lg"
+                        prop.children [
+                            Html.button [
+                                prop.text "Logout"
+                                prop.className "text-sm text-gray-400 hover:text-gray-600"
+                                prop.onClick (fun _ -> dispatch UserClickedLogout)
+                            ]
+                        ]
+                    ]
                 ]
-            )
+            ]
         ]

@@ -12,15 +12,27 @@ export default defineConfig({
       },
       proxy: {
         '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
-          });
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('proxy error', err);
+            });
+          },
+        },
+        '/login': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+        '/logout': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+        '/signin-oidc': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
         },
       }
-    }
   },
   plugins: [
     tailwindcss(),

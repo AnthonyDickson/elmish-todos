@@ -1,10 +1,13 @@
-.PHONY: server-build server-watch format lint client-watch client-build
+.PHONY: server-build server-run server-watch format lint client-watch client-build
 
 server-build:
 	dotnet build src/ElmishTodos.Server/ElmishTodos.Server.fsproj
 
+server-run:
+	ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/ElmishTodos.Server
+
 server-watch:
-	dotnet watch run --project src/ElmishTodos.Server
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project src/ElmishTodos.Server
 
 format:
 	dotnet fantomas .

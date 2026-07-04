@@ -1,2 +1,4 @@
 bin/
 obj/
+authelia/db.sqlite3
+authelia/notifications
