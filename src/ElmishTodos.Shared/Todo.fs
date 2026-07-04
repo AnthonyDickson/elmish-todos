@@ -2,8 +2,6 @@ namespace ElmishTodos.Shared.Todo
 
 open System
 
-open ElmishTodos.Shared.Coders
-
 /// <summary>A todo item stored in the in-memory todo list.</summary>
 type Todo = {
     /// <summary>Unique identifier for the todo item.</summary>

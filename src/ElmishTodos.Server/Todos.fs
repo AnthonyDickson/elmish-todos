@@ -128,7 +128,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            route "/api/todos" (Auth.requireAuth >=> handler store)
+            route "/api/todos" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -157,7 +157,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            routef "/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
+            routef "/todos/{%O:guid}" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -208,7 +208,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            route "/api/todos" (Auth.requireAuth >=> handler store)
+            route "/api/todos" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<Todo>,
@@ -262,7 +262,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            routef "/api/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
+            routef "/api/todos/{%O:guid}" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<UpdateTodoRequest>,
@@ -296,7 +296,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            routef "/api/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
+            routef "/api/todos/{%O:guid}" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -313,15 +313,17 @@ module Api =
                 )
             )
 
-    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq = [
-        GET [ GetAll.endpoint store; Get.endpoint store ]
+    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq =
+        [
+            GET [ GetAll.endpoint store; Get.endpoint store ]
 
-        POST [ Create.endpoint store ]
+            POST [ Create.endpoint store ]
 
-        PATCH [ Update.endpoint store ]
+            PATCH [ Update.endpoint store ]
 
-        DELETE [ Delete.endpoint store ]
-    ]
+            DELETE [ Delete.endpoint store ]
+        ]
+        |> Seq.map (addFilter Auth.requireAuth)
 
 /// This module defines the public API of the Todos feature slice
 [<RequireQualifiedAccess>]

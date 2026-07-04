@@ -1,7 +1,6 @@
 namespace ElmishTodos.Server.Auth
 
 open System
-open System.Threading.Tasks
 
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
