@@ -90,8 +90,6 @@ module Auth =
                     options.CallbackPath <- oidcConfig["CallbackPath"]
                     options.SaveTokens <- true
 
-                    options.PushedAuthorizationBehavior <- PushedAuthorizationBehavior.Disable
-
                     options.Scope.Add "openid" |> ignore
                     options.Scope.Add "profile" |> ignore
                     options.Scope.Add "email" |> ignore
