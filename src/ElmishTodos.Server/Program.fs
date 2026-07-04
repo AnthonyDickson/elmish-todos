@@ -3,10 +3,6 @@ module ElmishTodos.Server.Program
 open System.Collections.Generic
 open System.Threading.Tasks
 
-open Microsoft.AspNetCore.Authentication
-open Microsoft.AspNetCore.Authentication.Cookies
-open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Authentication.OpenIdConnect
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
@@ -15,13 +11,10 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 
+open ElmishTodos.Server.Auth
 open ElmishTodos.Server.OpenApi
 open ElmishTodos.Server.Todos
 
-
-let private oidcScheme = OpenIdConnectDefaults.AuthenticationScheme
-let private cookieScheme = CookieAuthenticationDefaults.AuthenticationScheme
-let private bearerScheme = "bearer"
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) =
     let oauth2AuthUrl = builder.Configuration["OAuth2:AuthorizationUrl"]
@@ -90,76 +83,7 @@ let private addOpenApiToApp (app : WebApplication) =
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
 
-    let oidcConfig = builder.Configuration.GetSection "Oidc"
-
-    let loginReturnUrl =
-        builder.Configuration["Login:ReturnUrl"]
-        |> Option.ofObj
-        |> Option.defaultValue "/"
-
-    builder.Services
-        .AddAuthentication(fun options ->
-            options.DefaultScheme <- cookieScheme
-            options.DefaultChallengeScheme <- oidcScheme)
-        .AddCookie(
-            cookieScheme,
-            fun options ->
-                options.Cookie.SecurePolicy <-
-                    if builder.Environment.IsDevelopment () then
-                        CookieSecurePolicy.SameAsRequest
-                    else
-                        CookieSecurePolicy.Always
-
-                options.Cookie.SameSite <- SameSiteMode.Lax
-                options.Cookie.HttpOnly <- true
-                options.Cookie.IsEssential <- true
-                options.ExpireTimeSpan <- System.TimeSpan.FromHours 1
-                options.SlidingExpiration <- true
-        )
-        .AddOpenIdConnect(
-            oidcScheme,
-            fun options ->
-                options.Authority <- oidcConfig["Authority"]
-                options.ClientId <- oidcConfig["ClientId"]
-                options.ClientSecret <- oidcConfig["ClientSecret"]
-                options.ResponseType <- "code"
-                options.CallbackPath <- oidcConfig["CallbackPath"]
-                options.SaveTokens <- true
-
-                options.PushedAuthorizationBehavior <-
-                    Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior.Disable
-
-                options.Scope.Add "openid" |> ignore
-                options.Scope.Add "profile" |> ignore
-                options.Scope.Add "email" |> ignore
-                options.Scope.Add "offline_access" |> ignore
-
-                if builder.Environment.IsDevelopment () then
-                    options.RequireHttpsMetadata <- false
-
-                    options.BackchannelHttpHandler <-
-                        // Allow self-signed SSL certs
-                        new System.Net.Http.HttpClientHandler (
-                            ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
-                        )
-        )
-        .AddJwtBearer(
-            bearerScheme,
-            fun options ->
-                options.Authority <- oidcConfig["Authority"]
-                options.RequireHttpsMetadata <- builder.Environment.IsProduction ()
-        )
-        .Services.AddAuthorization(fun options ->
-            options.AddPolicy (
-                "authenticated",
-                fun policy ->
-                    policy.AddAuthenticationSchemes(cookieScheme, bearerScheme).RequireAuthenticatedUser ()
-                    |> ignore
-            )
-            |> ignore)
-        .AddRouting()
-        .AddOxpecker ()
-    |> ignore
+    Auth.configureServices builder
 
     if builder.Environment.IsDevelopment () then
         addOpenApiToBuilder builder
@@ -169,40 +93,16 @@ let main (args : string array) : int =
     if app.Environment.IsDevelopment () then
         addOpenApiToApp app
 
-    app.MapGet (
-        "/login",
-        fun (ctx : Microsoft.AspNetCore.Http.HttpContext) ->
-            task {
-                if ctx.User.Identity.IsAuthenticated then
-                    ctx.Response.Redirect "/"
-                else
-                    let props = AuthenticationProperties (RedirectUri = loginReturnUrl)
+    let loginReturnUrl =
+        app.Configuration["Login:ReturnUrl"] |> Option.ofObj |> Option.defaultValue "/"
 
-                    return! ctx.ChallengeAsync (oidcScheme, props)
-            }
-            :> System.Threading.Tasks.Task
-    )
-    |> ignore
-
-    app.MapGet (
-        "/logout",
-        // Currently Authelia does not support RP-Initiated Logout
-        // (see https://github.com/authelia/authelia/pull/11660). Once released:
-        //   1. Remove the EndSessionUrl from appsettings.Development.json
-        //   2. Replace this handler with:
-        //        fun ctx -> task {
-        //            do! ctx.SignOutAsync cookieScheme
-        //            return! ctx.SignOutAsync (oidcScheme, AuthenticationProperties (RedirectUri = loginReturnUrl)) }
-        fun (ctx : Microsoft.AspNetCore.Http.HttpContext) ->
-            ctx.SignOutAsync (cookieScheme, AuthenticationProperties (RedirectUri = "/"))
-    )
-    |> ignore
-
+    let authEndpoints = Auth.endpoints loginReturnUrl
     let todoEndpoints = Todos.startStore () |> Todos.endpoints
+    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
-    app.UseOxpecker todoEndpoints |> ignore
+    app.UseOxpecker allEndpoints |> ignore
     app.Run ()
     0

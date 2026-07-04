@@ -81,6 +81,7 @@ module Api =
     open Oxpecker
     open Oxpecker.OpenApi
 
+    open ElmishTodos.Server.Auth
     open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Todo
     open Models
@@ -107,34 +108,15 @@ module Api =
             }
 
     module private Helpers =
-        open Microsoft.OpenApi
-
         let notFound (msg : string) : EndpointHandler =
             fun ctx ->
                 ctx.SetStatusCode 404
-                Json.write ctx { Error = "Not Found"; Details = msg; StatusCode = Some 404 }
 
-        let requireAuth : EndpointMiddleware =
-            fun next ctx ->
-                task {
-                    if
-                        not (isNull ctx.User)
-                        && not (isNull ctx.User.Identity)
-                        && ctx.User.Identity.IsAuthenticated
-                    then
-                        return! next ctx
-                    else
-                        ctx.SetStatusCode 401
-                        return! Json.write ctx { Error = "Unauthorized"; Details = "Authentication required"; StatusCode = Some 401 }
+                Json.write ctx {
+                    Error = "Not Found"
+                    Details = msg
+                    StatusCode = Some 404
                 }
-
-        let oauthRequirement () : OpenApiSecurityRequirement =
-            let schemeRef =
-                OpenApiSecuritySchemeReference ("scalarOAuth2", null, "SecuritySchemes")
-
-            let requirement = OpenApiSecurityRequirement ()
-            requirement[schemeRef] <- ResizeArray [ "openid"; "profile"; "email" ]
-            requirement
 
     module GetAll =
         /// GET /todos — list all items
@@ -145,8 +127,8 @@ module Api =
                     return! Json.write ctx items
                 }
 
-        let endpoint (store: Store) =
-            route "/api/todos" (Helpers.requireAuth >=> handler store)
+        let endpoint (store : Store) =
+            route "/api/todos" (Auth.requireAuth >=> handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -157,7 +139,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "List all todos"
                             op.Description <- "Returns every todo item in the store."
-                            op.Security <- ResizeArray [ Helpers.oauthRequirement () ]
+                            op.Security <- ResizeArray [ Auth.oauthRequirement () ]
                             Task.CompletedTask
                 )
             )
@@ -174,8 +156,8 @@ module Api =
                     | None -> return! Helpers.notFound $"Todo {id} not found" ctx
                 }
 
-        let endpoint (store: Store) =
-            routef "/todos/{%O:guid}" (fun id -> Helpers.requireAuth >=> handler store id)
+        let endpoint (store : Store) =
+            routef "/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -187,7 +169,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Get a todo by ID"
                             op.Description <- "Returns a single todo item, or 404 if not found."
-                            op.Security <- ResizeArray [ Helpers.oauthRequirement () ]
+                            op.Security <- ResizeArray [ Auth.oauthRequirement () ]
                             Task.CompletedTask
                 )
             )
@@ -197,7 +179,7 @@ module Api =
         let handler (store : Store) : EndpointHandler =
             fun ctx ->
                 task {
-                    let! result: Result<Todo, string> = Json.read ctx
+                    let! (result : Result<Todo, string>) = Json.read ctx
 
                     match result with
                     | Ok todo ->
@@ -225,8 +207,8 @@ module Api =
                             }
                 }
 
-        let endpoint (store: Store) =
-            route "/api/todos" (Helpers.requireAuth >=> handler store)
+        let endpoint (store : Store) =
+            route "/api/todos" (Auth.requireAuth >=> handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<Todo>,
@@ -239,7 +221,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Create a todo"
                             op.Description <- "Creates a new todo item and returns it with status 201."
-                            op.Security <- ResizeArray [ Helpers.oauthRequirement () ]
+                            op.Security <- ResizeArray [ Auth.oauthRequirement () ]
                             Task.CompletedTask
                 )
             )
@@ -249,7 +231,7 @@ module Api =
         let handler (store : Store) (id : Guid) : EndpointHandler =
             fun ctx ->
                 task {
-                    let! result: Result<UpdateTodoRequest, string> = Json.read ctx
+                    let! (result : Result<UpdateTodoRequest, string>) = Json.read ctx
 
                     match result with
                     | Ok req ->
@@ -258,10 +240,10 @@ module Api =
 
                             return!
                                 Json.write ctx {
-                                        Error = "Validation Error"
-                                        Details = "Title is required"
-                                        StatusCode = Some 400
-                                    }
+                                    Error = "Validation Error"
+                                    Details = "Title is required"
+                                    StatusCode = Some 400
+                                }
                         else
                             let! updated = Store.update store id (req.Title.Trim ()) req.Completed
 
@@ -273,31 +255,31 @@ module Api =
 
                         return!
                             Json.write ctx {
-                                    Error = "Validation Error"
-                                    Details = err
-                                    StatusCode = Some 400
-                                }
+                                Error = "Validation Error"
+                                Details = err
+                                StatusCode = Some 400
+                            }
                 }
 
-        let endpoint (store: Store) =
-            routef "/api/todos/{%O:guid}" (fun id -> Helpers.requireAuth >=> handler store id)
-                |> addOpenApi (
-                    OpenApiConfig (
-                        requestBody = RequestBody typeof<UpdateTodoRequest>,
-                        responseBodies = [|
-                            ResponseBody typeof<Todo>
-                            ResponseBody (typeof<ApiError>, statusCode = 400)
-                            ResponseBody (typeof<ApiError>, statusCode = 401)
-                            ResponseBody (typeof<ApiError>, statusCode = 404)
-                        |],
-                        configureOperation =
-                            fun op _ _ ->
-                                op.Summary <- "Update a todo"
-                                op.Description <- "Replaces the title and completed flag of an existing todo."
-                                op.Security <- ResizeArray [ Helpers.oauthRequirement () ]
-                                Task.CompletedTask
-                    )
+        let endpoint (store : Store) =
+            routef "/api/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
+            |> addOpenApi (
+                OpenApiConfig (
+                    requestBody = RequestBody typeof<UpdateTodoRequest>,
+                    responseBodies = [|
+                        ResponseBody typeof<Todo>
+                        ResponseBody (typeof<ApiError>, statusCode = 400)
+                        ResponseBody (typeof<ApiError>, statusCode = 401)
+                        ResponseBody (typeof<ApiError>, statusCode = 404)
+                    |],
+                    configureOperation =
+                        fun op _ _ ->
+                            op.Summary <- "Update a todo"
+                            op.Description <- "Replaces the title and completed flag of an existing todo."
+                            op.Security <- ResizeArray [ Auth.oauthRequirement () ]
+                            Task.CompletedTask
                 )
+            )
 
     module Delete =
         /// DELETE /todos/{id} — remove an item
@@ -313,43 +295,33 @@ module Api =
                         return! Helpers.notFound $"Todo {id} not found" ctx
                 }
 
-        let endpoint (store: Store) =
-            routef "/api/todos/{%O:guid}" (fun id -> Helpers.requireAuth >=> handler store id)
-                |> addOpenApi (
-                    OpenApiConfig (
-                        responseBodies = [|
-                            ResponseBody (typeof<unit>, statusCode = 204)
-                            ResponseBody (typeof<ApiError>, statusCode = 401)
-                            ResponseBody (typeof<ApiError>, statusCode = 404)
-                        |],
-                        configureOperation =
-                            fun op _ _ ->
-                                op.Summary <- "Delete a todo"
-                                op.Description <- "Permanently removes a todo. Returns 204 on success."
-                                op.Security <- ResizeArray [ Helpers.oauthRequirement () ]
-                                Task.CompletedTask
-                    )
+        let endpoint (store : Store) =
+            routef "/api/todos/{%O:guid}" (fun id -> Auth.requireAuth >=> handler store id)
+            |> addOpenApi (
+                OpenApiConfig (
+                    responseBodies = [|
+                        ResponseBody (typeof<unit>, statusCode = 204)
+                        ResponseBody (typeof<ApiError>, statusCode = 401)
+                        ResponseBody (typeof<ApiError>, statusCode = 404)
+                    |],
+                    configureOperation =
+                        fun op _ _ ->
+                            op.Summary <- "Delete a todo"
+                            op.Description <- "Permanently removes a todo. Returns 204 on success."
+                            op.Security <- ResizeArray [ Auth.oauthRequirement () ]
+                            Task.CompletedTask
                 )
+            )
 
-    let endpoints (store: Store): Oxpecker.RoutingTypes.Endpoint seq =
-        [
-            GET [
-                GetAll.endpoint store
-                Get.endpoint store
-            ]
+    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq = [
+        GET [ GetAll.endpoint store; Get.endpoint store ]
 
-            POST [
-                Create.endpoint store
-            ]
+        POST [ Create.endpoint store ]
 
-            PATCH [
-                Update.endpoint store
-            ]
+        PATCH [ Update.endpoint store ]
 
-            DELETE [
-                Delete.endpoint store
-            ]
-        ]
+        DELETE [ Delete.endpoint store ]
+    ]
 
 /// This module defines the public API of the Todos feature slice
 [<RequireQualifiedAccess>]

@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Auth.fs" />
     <Compile Include="OpenApi.fs" />
     <Compile Include="Todos.fs" />
     <Compile Include="Program.fs" />
