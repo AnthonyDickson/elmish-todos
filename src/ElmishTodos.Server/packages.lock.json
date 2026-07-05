@@ -4,9 +4,9 @@
     "net10.0": {
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[10.1.300, )",
-        "resolved": "10.1.300",
-        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
+        "requested": "[10.1.301, )",
+        "resolved": "10.1.301",
+        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Direct",
@@ -28,32 +28,30 @@
       },
       "Oxpecker": {
         "type": "Direct",
-        "requested": "[2.0.0, )",
-        "resolved": "2.0.0",
-        "contentHash": "abvcUF/MwzhyL7WXMAAlwGe9w7T9DJDXPCYuu456rXVvUK3sNsvIOuAjDecSvHJ4CWJwa1/RrMNPWowqtZuIRw==",
+        "requested": "[2.0.1, )",
+        "resolved": "2.0.1",
+        "contentHash": "SM1NTPcwWnVm3/1O+vKonrON6CVIj0ktN0NgDYWXiSrnhSI8MoK3rw+KZmttV1ABiV9P7hEs8AAkuOIjh3K9yw==",
         "dependencies": {
-          "FSharp.Core": "10.0.100",
           "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
-          "Oxpecker.ViewEngine": "2.0.0",
+          "Oxpecker.ViewEngine": "2.0.1",
           "TypeShape": "10.0.0"
         }
       },
       "Oxpecker.OpenApi": {
         "type": "Direct",
-        "requested": "[2.1.1, )",
-        "resolved": "2.1.1",
-        "contentHash": "5H53G3qhJtx46rYien5fltC8gbzhn29m6nbWPL8QgyFlq0WjM4Kr+/SgmSi8hU3wljEOAFHyq4UuU1yM+ChUzA==",
+        "requested": "[2.1.2, )",
+        "resolved": "2.1.2",
+        "contentHash": "LDhI+ESILOR5slZ7VdFV9NHsIETRmWRaZgMZHOhW8Wo/0C+8IKMgSmL5n+LG2v6CO76WaqqYSansXoKtdFo1ng==",
         "dependencies": {
-          "FSharp.Core": "10.0.101",
           "Microsoft.AspNetCore.OpenApi": "10.0.0",
-          "Oxpecker": "2.0.0"
+          "Oxpecker": "2.0.1"
         }
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.5.5, )",
-        "resolved": "2.5.5",
-        "contentHash": "0LTfeypcNYxE4j0NidUOswdKPWCkEk8mGs9Z/rexH7aHFS/7NqxALlQ3mOLLPQvhmLPIztCIShw0j4D6KYJ24w=="
+        "requested": "[2.16.10, )",
+        "resolved": "2.16.10",
+        "contentHash": "dJsam1uxJ+h6YzaqDGjja1y3miyBd4VDumMwwow03yJapiRp3OtV5lMaOUvp8w5b16gAflYyvfj7HDL+0X2Rqw=="
       },
       "Thoth.Json.Net": {
         "type": "Direct",
@@ -137,8 +135,8 @@
       },
       "Oxpecker.ViewEngine": {
         "type": "Transitive",
-        "resolved": "2.0.0",
-        "contentHash": "nGVqJHx+tMqjGZR860aT3+SzRVE5tGoJmiLnA0aEj8MSPj8mj/3wJe68pfSASTHGE5YszbPMzUWXPOB11atwvQ==",
+        "resolved": "2.0.1",
+        "contentHash": "tMi5XMQx4XQY1iCPR1UT/YvEuXI53rA7CtzZ7614VC+o13C6pxROUKu3U076r5risCwmGbyJ7IAPNuzN3q07LA==",
         "dependencies": {
           "FSharp.Core": "10.0.100"
         }
@@ -163,13 +161,13 @@
       "elmishtodos.shared": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.300, )",
+          "FSharp.Core": "[10.1.301, )",
           "Thoth.Json.Net": "[12.0.0, )"
         }
       },
       "Fable.Core": {
         "type": "CentralTransitive",
-        "requested": "[5.0.0, )",
+        "requested": "[5.2.0, )",
         "resolved": "3.1.6",
         "contentHash": "w6M1F0zoLk4kTFc1Lx6x1Ft6BD3QwRe0eaLiinAqbjVkcF+iK+NiXGJO+a6q9RAF9NCg0vI48Xku7aNeqG4JVw==",
         "dependencies": {
