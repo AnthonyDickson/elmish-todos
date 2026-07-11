@@ -1,111 +1,119 @@
 namespace ElmishTodos.Server.Todos
 
-module Models =
-    open System
-
-    open ElmishTodos.Shared.Todo
-
-    // ── Todo Store ───────────────────────────────────────────────────────────────
-
-    type TodoMessage =
-        | GetAll of AsyncReplyChannel<Todo list>
-        | Get of Guid * AsyncReplyChannel<Todo option>
-        | Upsert of Todo
-        | Update of id : Guid * title : string * completed : bool * reply : AsyncReplyChannel<Todo option>
-        | Delete of Guid * AsyncReplyChannel<bool>
-
-    type Store = MailboxProcessor<TodoMessage>
-
 module Store =
     open System
 
     open ElmishTodos.Shared.Todo
-    open Models
+    open ElmishTodos.Server.Db
+    open SqlHydra.Query
+    open SqlHydra.Query.SqliteExtensions
 
-    let start () : Store =
-        let rec loop (state : Map<Guid, Todo>) (inbox : Store) =
-            async {
-                let! msg = inbox.Receive ()
+    type Store = { Db : QueryContextFactory }
 
-                match msg with
-                | GetAll reply ->
-                    reply.Reply (state.Values |> Seq.toList)
-                    return! loop state inbox
-                | Get (todoId, reply) ->
-                    reply.Reply (state.TryFind todoId)
-                    return! loop state inbox
-                | Upsert todoItem -> return! loop (state.Add (todoItem.Id, todoItem)) inbox
-                | Update (id = id; title = title; completed = completed; reply = reply) ->
-                    match state.TryFind id with
-                    | Some todo ->
-                        let updated = {
-                            todo with
-                                Title = title
-                                Completed = completed
-                        }
+    let create (connectionString : string) = {
+        Db = QueryContextFactory.Create connectionString
+    }
 
-                        let nextState = state.Add (id, updated)
+    // ── DB row ↔ API type mapping ──────────────────────────────────────────
 
-                        reply.Reply <| Some updated
-                        return! loop nextState inbox
-                    | None ->
-                        reply.Reply None
-                        return! loop state inbox
-                | Delete (id, reply) ->
-                    let existed = state.ContainsKey id
-                    let nextState = if existed then state.Remove id else state
-                    reply.Reply existed
-                    return! loop nextState inbox
-            }
+    let private toTodo (row : main.Todos) : Todo = {
+        Id = row.Id
+        Title = row.Title
+        Completed = row.Completed
+        CreatedAt = row.CreatedAt
+    }
 
-        MailboxProcessor.Start (loop Map.empty)
+    let private toRow (todo : Todo) : main.Todos = {
+        Id = todo.Id
+        Title = todo.Title
+        Completed = todo.Completed
+        CreatedAt = todo.CreatedAt
+    }
 
-    let getAll (todoStore : Store) : Async<Todo list> = todoStore.PostAndAsyncReply GetAll
+    // ── Queries ────────────────────────────────────────────────────────────
 
-    let get (todoStore : Store) (todoId : Guid) : Async<Todo option> =
-        todoStore.PostAndAsyncReply (fun reply -> Get (todoId, reply))
+    let getAll (store : Store) =
+        task {
+            let! rows =
+                selectTask store.Db {
+                    for t in main.Todos do
+                        select t
+                }
 
-    let upsert (todoStore : Store) (todo : Todo) : unit = todoStore.Post (Upsert todo)
+            return rows |> List.ofSeq |> List.map toTodo
+        }
 
-    let update (todoStore : Store) (id : Guid) (title : string) (completed : bool) : Async<Todo option> =
-        todoStore.PostAndAsyncReply (fun reply -> Update (id, title, completed, reply))
+    let get (store : Store) (id : Guid) =
+        task {
+            let! result =
+                selectTask store.Db {
+                    for t in main.Todos do
+                        where (t.Id = id)
+                        tryHead
+                }
 
-    let delete (todoStore : Store) (todoId : Guid) : Async<bool> =
-        todoStore.PostAndAsyncReply (fun reply -> Delete (todoId, reply))
+            return result |> Option.map toTodo
+        }
+
+    let upsert (store : Store) (todo : Todo) =
+        task {
+            let! _ =
+                insertTask store.Db {
+                    for t in main.Todos do
+                        entity (toRow todo)
+                        onConflictDoUpdate t.Id (t.Title, t.Completed)
+                }
+
+            return ()
+        }
+
+    let update (store : Store) (id : Guid) (title : string) (completed : bool) =
+        task {
+            use! shared = store.Db.OpenContextAsync ()
+            shared.BeginTransaction ()
+
+            let! _rowsAffected =
+                updateTask shared {
+                    for t in main.Todos do
+                        set t.Title title
+                        set t.Completed completed
+                        where (t.Id = id)
+                }
+
+            let! result =
+                selectTask shared {
+                    for t in main.Todos do
+                        where (t.Id = id)
+                        tryHead
+                }
+
+            shared.CommitTransaction ()
+            return result |> Option.map toTodo
+        }
+
+    let delete (store : Store) (id : Guid) =
+        task {
+            let! rows =
+                deleteTask store.Db {
+                    for t in main.Todos do
+                        where (t.Id = id)
+                }
+
+            return rows > 0
+        }
 
 module Api =
     open System
     open System.Threading.Tasks
 
-    open Microsoft.AspNetCore.Http
     open Oxpecker
     open Oxpecker.OpenApi
 
     open ElmishTodos.Server.Auth
     open ElmishTodos.Shared.ApiError
+    open ElmishTodos.Server.Json
     open ElmishTodos.Shared.Todo
-    open Models
-
-    module private Json =
-        open System.IO
-        open System.Text
-
-        open Microsoft.AspNetCore.Http
-
-        open ElmishTodos.Shared.Coders
-
-        let write (ctx : HttpContext) (object : 'T) =
-            task {
-                ctx.Response.ContentType <- "application/json; charset=utf-8"
-                return! ctx.Response.WriteAsync (Encode.toString object)
-            }
-
-        let read (ctx : HttpContext) =
-            task {
-                use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
-                let! body = reader.ReadToEndAsync ()
-                return Decode.fromString body
-            }
+    open Store
 
     module private Helpers =
         let notFound (msg : string) : EndpointHandler =
@@ -157,7 +165,7 @@ module Api =
                 }
 
         let endpoint (store : Store) =
-            routef "/todos/{%O:guid}" (handler store)
+            routef "/api/todos/{%O:guid}" (handler store)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -193,7 +201,7 @@ module Api =
                                     StatusCode = Some 400
                                 }
                         else
-                            Store.upsert store todo
+                            do! Store.upsert store todo
                             ctx.SetStatusCode 201
                             return! Json.write ctx todo
                     | Error err ->
@@ -328,7 +336,6 @@ module Api =
 /// This module defines the public API of the Todos feature slice
 [<RequireQualifiedAccess>]
 module Todos =
-    type Store = Models.Store
+    type Store = Store.Store
 
-    let startStore = Store.start
     let endpoints = Api.endpoints

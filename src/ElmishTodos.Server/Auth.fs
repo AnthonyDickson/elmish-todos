@@ -117,8 +117,6 @@ module Auth =
                         |> ignore
                 )
                 |> ignore)
-            .AddRouting()
-            .AddOxpecker ()
         |> ignore
 
     let private loginHandler (returnUrl : string) : EndpointHandler =

@@ -11,8 +11,14 @@
   <ItemGroup>
     <Compile Include="Auth.fs" />
     <Compile Include="OpenApi.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="Db.fs" />
     <Compile Include="Todos.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="migrations/**/*.sql" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +30,9 @@
     <PackageReference Include="Oxpecker.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Thoth.Json.Net" />
+    <PackageReference Include="dbup-sqlite" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SqlHydra.Query" />
   </ItemGroup>
 
 </Project>

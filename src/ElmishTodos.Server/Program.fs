@@ -1,9 +1,14 @@
 module ElmishTodos.Server.Program
 
 open System.Collections.Generic
+open System.Reflection
 open System.Threading.Tasks
 
+open DbUp
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
+open Microsoft.Data.Sqlite
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.OpenApi
@@ -11,7 +16,9 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 
+open ElmishTodos.Shared.ApiError
 open ElmishTodos.Server.Auth
+open ElmishTodos.Server.Json
 open ElmishTodos.Server.OpenApi
 open ElmishTodos.Server.Todos
 
@@ -79,16 +86,61 @@ let private addOpenApiToApp (app : WebApplication) =
         |> ignore)
     |> ignore
 
+let private applyMigrations (connectionString : string) =
+    let result =
+        DeployChanges.To
+            .SqliteDatabase(connectionString)
+            .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly ())
+            .LogToConsole()
+            .Build()
+            .PerformUpgrade ()
+
+    if not result.Successful then
+        failwithf "Database migration failed: %O" result.Error
+
+    use conn = new SqliteConnection (connectionString)
+    conn.Open ()
+
+    use walCmd = conn.CreateCommand ()
+    walCmd.CommandText <- "PRAGMA journal_mode = WAL"
+    walCmd.ExecuteNonQuery () |> ignore
+
+    use fkCmd = conn.CreateCommand ()
+    fkCmd.CommandText <- "PRAGMA foreign_keys = ON"
+    fkCmd.ExecuteNonQuery () |> ignore
+
+let private handleException (next : RequestDelegate) : RequestDelegate =
+    RequestDelegate (fun (ctx : HttpContext) ->
+        task {
+            try
+                return! next.Invoke ctx
+            with ex ->
+                ctx.Response.StatusCode <- 500
+
+                return!
+                    Json.write ctx {
+                        Error = "Internal Server Error"
+                        Details = "An unexpected error occurred"
+                        StatusCode = Some 500
+                    }
+        }
+        :> Task)
+
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
 
     Auth.configureServices builder
 
+    builder.Services.AddRouting().AddOxpecker () |> ignore
+
     if builder.Environment.IsDevelopment () then
         addOpenApiToBuilder builder
 
     let app = builder.Build ()
+
+    let connectionString = app.Configuration.GetConnectionString "Default"
+    applyMigrations connectionString
 
     if app.Environment.IsDevelopment () then
         addOpenApiToApp app
@@ -97,9 +149,11 @@ let main (args : string array) : int =
         app.Configuration["Login:ReturnUrl"] |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
-    let todoEndpoints = Todos.startStore () |> Todos.endpoints
+    let todoStore = Todos.Store.create connectionString
+    let todoEndpoints = Todos.endpoints todoStore
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
+    app.Use handleException |> ignore
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
