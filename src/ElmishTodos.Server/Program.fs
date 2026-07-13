@@ -7,6 +7,7 @@ open System.Threading.Tasks
 open DbUp
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Data.Sqlite
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
@@ -154,6 +155,7 @@ let main (args : string array) : int =
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use handleException |> ignore
+    app.UseStaticFiles(StaticFileOptions(RequestPath = "/static")) |> ignore
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore

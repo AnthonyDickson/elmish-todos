@@ -1,6 +1,5 @@
 # TODO
 
-- Add favico and setup static file serving
 - Centralise config and parse into record
 - Add test suite
 - Bundle client into server binary (single-file publish)
