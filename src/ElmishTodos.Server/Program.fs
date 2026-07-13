@@ -1,13 +1,13 @@
 module ElmishTodos.Server.Program
 
 open System.Collections.Generic
+open System.ComponentModel.DataAnnotations
 open System.Reflection
 open System.Threading.Tasks
 
 open DbUp
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Data.Sqlite
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
@@ -19,14 +19,15 @@ open Scalar.AspNetCore
 
 open ElmishTodos.Shared.ApiError
 open ElmishTodos.Server.Auth
+open ElmishTodos.Server.Config
 open ElmishTodos.Server.Json
 open ElmishTodos.Server.OpenApi
 open ElmishTodos.Server.Todos
 
 
-let private addOpenApiToBuilder (builder : WebApplicationBuilder) =
-    let oauth2AuthUrl = builder.Configuration["OAuth2:AuthorizationUrl"]
-    let oauth2TokenUrl = builder.Configuration["OAuth2:TokenUrl"]
+let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Options) =
+    let oauth2AuthUrl = oauth2.AuthorizationUrl
+    let oauth2TokenUrl = oauth2.TokenUrl
 
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
@@ -127,16 +128,54 @@ let private handleException (next : RequestDelegate) : RequestDelegate =
         }
         :> Task)
 
+let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
+    (services : IServiceCollection)
+    (config : IConfiguration)
+    (sectionName : string)
+    =
+    let section = config.GetSection sectionName
+    let value = new 'T ()
+    section.Bind value
+
+    let results = ResizeArray<ValidationResult> ()
+
+    if not (Validator.TryValidateObject (value, ValidationContext value, results, validateAllProperties = true)) then
+        let messages =
+            results
+            |> Seq.map (fun r ->
+                let names =
+                    if r.MemberNames |> Seq.isEmpty then
+                        sectionName
+                    else
+                        r.MemberNames |> String.concat ", "
+
+                $"  - {names}: {r.ErrorMessage}")
+            |> String.concat "\n"
+
+        failwithf
+            "Configuration validation failed for section '%s':\n%s\n\nEnsure the required settings are present in appsettings or environment variables."
+            sectionName
+            messages
+
+    services.AddOptions<'T>().Bind(section).ValidateDataAnnotations().ValidateOnStart ()
+    |> ignore
+
+    value
+
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
 
-    Auth.configureServices builder
+    let oidc = readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
+    let oauth2 = readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+    let login = readSection<LoginOptions> builder.Services builder.Configuration "Login"
+
+    Auth.configureServices builder.Services (builder.Environment.IsDevelopment()) oidc
 
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
     if builder.Environment.IsDevelopment () then
-        addOpenApiToBuilder builder
+        addOpenApiToBuilder builder oauth2
 
     let app = builder.Build ()
 
@@ -147,7 +186,7 @@ let main (args : string array) : int =
         addOpenApiToApp app
 
     let loginReturnUrl =
-        app.Configuration["Login:ReturnUrl"] |> Option.ofObj |> Option.defaultValue "/"
+        login.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString

@@ -1,6 +1,5 @@
 # TODO
 
-- Centralise config and parse into record
 - Add test suite
 - Bundle client into server binary (single-file publish)
   - Enable `StaticWebAssetsEnabled` in `.fsproj`

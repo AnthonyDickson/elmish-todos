@@ -6,13 +6,12 @@ open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Authentication.OpenIdConnect
 open Microsoft.AspNetCore.Authorization
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Hosting
 open Microsoft.OpenApi
 open Oxpecker
 
+open ElmishTodos.Server.Config
 open ElmishTodos.Shared.ApiError
 open ElmishTodos.Shared.Coders
 
@@ -58,10 +57,8 @@ module Auth =
 
     let requireAuth : EndpointMiddleware = requirePolicy policyName
 
-    let configureServices (builder : WebApplicationBuilder) =
-        let oidcConfig = builder.Configuration.GetSection "Oidc"
-
-        builder.Services
+    let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcOptions) =
+        services
             .AddAuthentication(fun options ->
                 options.DefaultScheme <- cookieScheme
                 options.DefaultChallengeScheme <- oidcScheme)
@@ -69,7 +66,7 @@ module Auth =
                 cookieScheme,
                 fun options ->
                     options.Cookie.SecurePolicy <-
-                        if builder.Environment.IsDevelopment () then
+                        if isDevelopment then
                             CookieSecurePolicy.SameAsRequest
                         else
                             CookieSecurePolicy.Always
@@ -83,11 +80,11 @@ module Auth =
             .AddOpenIdConnect(
                 oidcScheme,
                 fun options ->
-                    options.Authority <- oidcConfig["Authority"]
-                    options.ClientId <- oidcConfig["ClientId"]
-                    options.ClientSecret <- oidcConfig["ClientSecret"]
+                    options.Authority <- oidc.Authority
+                    options.ClientId <- oidc.ClientId
+                    options.ClientSecret <- oidc.ClientSecret
                     options.ResponseType <- "code"
-                    options.CallbackPath <- oidcConfig["CallbackPath"]
+                    options.CallbackPath <- oidc.CallbackPath
                     options.SaveTokens <- true
 
                     options.Scope.Add "openid" |> ignore
@@ -95,7 +92,7 @@ module Auth =
                     options.Scope.Add "email" |> ignore
                     options.Scope.Add "offline_access" |> ignore
 
-                    if builder.Environment.IsDevelopment () then
+                    if isDevelopment then
                         options.RequireHttpsMetadata <- false
 
                         options.BackchannelHttpHandler <-
@@ -106,8 +103,8 @@ module Auth =
             .AddJwtBearer(
                 bearerScheme,
                 fun options ->
-                    options.Authority <- oidcConfig["Authority"]
-                    options.RequireHttpsMetadata <- builder.Environment.IsProduction ()
+                    options.Authority <- oidc.Authority
+                    options.RequireHttpsMetadata <- not isDevelopment
             )
             .Services.AddAuthorization(fun options ->
                 options.AddPolicy (
