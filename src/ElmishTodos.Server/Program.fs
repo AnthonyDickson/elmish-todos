@@ -167,10 +167,13 @@ let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
 
     let oidc = readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
-    let oauth2 = readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+
+    let oauth2 =
+        readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+
     let login = readSection<LoginOptions> builder.Services builder.Configuration "Login"
 
-    Auth.configureServices builder.Services (builder.Environment.IsDevelopment()) oidc
+    Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidc
 
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
@@ -185,8 +188,7 @@ let main (args : string array) : int =
     if app.Environment.IsDevelopment () then
         addOpenApiToApp app
 
-    let loginReturnUrl =
-        login.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
+    let loginReturnUrl = login.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString
@@ -194,10 +196,15 @@ let main (args : string array) : int =
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use handleException |> ignore
-    app.UseStaticFiles(StaticFileOptions(RequestPath = "/static")) |> ignore
+    app.UseStaticFiles () |> ignore
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
+
+    // Run the vite dev server for accessing the SPA bundle.
+    if not (app.Environment.IsDevelopment ()) then
+        app.MapFallbackToFile "index.html" |> ignore
+
     app.Run ()
     0

@@ -5,7 +5,9 @@
     <RootNamespace>ElmishTodos.Server</RootNamespace>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <StaticWebAssetsEnabled>true</StaticWebAssetsEnabled>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
   <ItemGroup>

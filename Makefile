@@ -1,13 +1,12 @@
-.PHONY: server-build server-run server-watch format lint client-watch client-build db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-run server-watch format lint client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+
+RUNTIME ?= linux-x64
 
 server-build:
 	dotnet build src/ElmishTodos.Server/ElmishTodos.Server.fsproj
 
 server-run:
 	ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/ElmishTodos.Server
-
-server-watch:
-	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project src/ElmishTodos.Server
 
 format:
 	dotnet fantomas .
@@ -20,6 +19,13 @@ client-watch:
 
 client-build:
 	dotnet fable . --cwd src/ElmishTodos.Client --outDir build --run npx vite build
+
+copy-client-dist: client-build
+	mkdir -p src/ElmishTodos.Server/wwwroot
+	cp -r src/ElmishTodos.Client/dist/* src/ElmishTodos.Server/wwwroot/
+
+publish: copy-client-dist
+	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj -c Release --self-contained -r $(RUNTIME) -p:PublishSingleFile=true -p:PublishTrimmed=true
 
 # ── Database ──────────────────────────────────────────────────────────────
 

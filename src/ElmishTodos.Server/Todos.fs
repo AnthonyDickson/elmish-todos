@@ -110,8 +110,8 @@ module Api =
     open Oxpecker.OpenApi
 
     open ElmishTodos.Server.Auth
-    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Server.Json
+    open ElmishTodos.Shared.ApiError
     open ElmishTodos.Shared.Todo
     open Store
 

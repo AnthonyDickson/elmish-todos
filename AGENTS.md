@@ -9,12 +9,22 @@ A full-stack F# .NET 10 todo app. The backend is a web API using Oxpecker with a
 ```bash
 make server-build    # Build the server
 make server-run      # Run the server (auto-applies DB migrations)
-make server-watch    # Run the server with hot reload
 make client-watch    # Start the client dev server (Vite + Fable watch)
 make client-build    # Production client bundle
+make copy-client-dist # Copy client dist into server wwwroot/
+make publish         # Single-file publish (builds client, copies assets, publishes server)
 make format          # Format F# with fantomas
 make lint            # Lint F# with fsharplint
 ```
+
+### Publishing
+
+```bash
+make publish                    # linux-x64 (default)
+make publish RUNTIME=osx-arm64  # macOS Apple Silicon
+```
+
+This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `src/ElmishTodos.Server/bin/Release/net10.0/<runtime>/publish/`.
 
 ### Database Commands
 
@@ -137,6 +147,12 @@ Two-layer MVU:
 - `App.fs` — Thin shell: routes `/`, `/active`, `/completed` → `TodoPage.Visibility`.
 - `TodoPage.fs` — Full TodoMVC: persist to `localStorage` via `initWithLocalStorage` / `updateWithLocalStorage`.
 - `Api.fs` — Typed HTTP client with `ApiResult<'T>` (Success/Failure discriminated union). Uses `fetchUnsafe` (no credentials), `Thoth.Json` for codecs.
+
+### Static Assets
+
+**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/ElmishTodos.Client/public/`. Vite serves them at root in dev and copies them into `dist/` on build. They reach the server via `make copy-client-dist`.
+
+**Server-only assets** (e.g. `robots.txt` that should exist regardless of the client bundle) live in `src/ElmishTodos.Server/wwwroot/`. Note that `wwwroot/` is gitignored and recreated by `copy-client-dist`, so the source of truth for any persisted file must live elsewhere (or use a build step).
 
 ## Code Style & Conventions
 

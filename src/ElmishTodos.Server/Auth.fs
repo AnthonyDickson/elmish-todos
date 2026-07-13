@@ -106,7 +106,7 @@ module Auth =
                     options.Authority <- oidc.Authority
                     options.RequireHttpsMetadata <- not isDevelopment
             )
-            .Services.AddAuthorization(fun options ->
+            .Services.AddAuthorization (fun options ->
                 options.AddPolicy (
                     policyName,
                     fun policy ->
