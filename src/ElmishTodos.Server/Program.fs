@@ -12,6 +12,7 @@ open Microsoft.Data.Sqlite
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.Logging
 open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
@@ -111,12 +112,16 @@ let private applyMigrations (connectionString : string) =
     fkCmd.CommandText <- "PRAGMA foreign_keys = ON"
     fkCmd.ExecuteNonQuery () |> ignore
 
-let private handleException (next : RequestDelegate) : RequestDelegate =
+let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
+    let logger = loggerFactory.CreateLogger "ElmishTodos.Server.Program"
+
     RequestDelegate (fun (ctx : HttpContext) ->
         task {
             try
                 return! next.Invoke ctx
             with ex ->
+                logger.LogError (ex, "An unhandled exception occurred")
+
                 ctx.Response.StatusCode <- 500
 
                 return!
@@ -195,7 +200,9 @@ let main (args : string array) : int =
     let todoEndpoints = Todos.endpoints todoStore
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
-    app.Use handleException |> ignore
+    app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
+    |> ignore
+
     app.UseStaticFiles () |> ignore
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
