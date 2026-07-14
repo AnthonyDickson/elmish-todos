@@ -1,0 +1,28 @@
+services:
+  elmish-todos:
+    image: ghcr.io/anthonydickson/elmish-todos:latest
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Mirrors appsettings.Development.json 1:1 for testing.
+      # Override Oidc__* and OAuth2__* for production — see docs/prod-oidc-setup.md.
+      Login__ReturnUrl: "http://localhost:5173/"
+      OAuth2__AuthorizationUrl: "https://127.0.0.1:9091/api/oidc/authorization"
+      OAuth2__TokenUrl: "https://127.0.0.1:9091/api/oidc/token"
+      Oidc__Authority: "https://127.0.0.1:9091"
+      Oidc__ClientId: "elmish-todos"
+      Oidc__ClientSecret: "elmish-todos-dev-secret"
+      Oidc__CallbackPath: "/signin-oidc"
+      ConnectionStrings__Default: "Data Source=/data/todos.db"
+    volumes:
+      - todos-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  todos-data:

@@ -1,5 +1,6 @@
 module ElmishTodos.Server.Program
 
+open System
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
 open System.Reflection
@@ -208,6 +209,8 @@ let main (args : string array) : int =
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
+
+    app.MapGet("/health", Func<_>(fun () -> Task.CompletedTask)) |> ignore
 
     // Run the vite dev server for accessing the SPA bundle.
     if not (app.Environment.IsDevelopment ()) then

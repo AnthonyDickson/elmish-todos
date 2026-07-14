@@ -84,6 +84,29 @@ make publish RUNTIME=osx-arm64  # macOS Apple Silicon
 
 Builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. Output at `src/ElmishTodos.Server/bin/Release/net10.0/<runtime>/publish/`.
 
+### Docker
+
+Build and push to a container registry:
+
+```bash
+docker build -t ghcr.io/your-org/elmish-todos:latest .
+docker push ghcr.io/your-org/elmish-todos:latest
+```
+
+On the deployment server, pull and run:
+
+```bash
+docker pull ghcr.io/your-org/elmish-todos:latest
+docker compose -f docker-compose.prod.yml up -d
+```
+
+The compose file mirrors `appsettings.Development.json` defaults. For production, override `Oidc__*` and `OAuth2__*` to point at your OIDC provider:
+
+```bash
+Oidc__ClientSecret="$(pass show oidc/elmish-todos/client-secret)" \
+  docker compose -f docker-compose.prod.yml up -d
+```
+
 ### Static Assets
 
 **Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/ElmishTodos.Client/public/`. Vite serves them at root in dev and copies them into `dist/` on build.

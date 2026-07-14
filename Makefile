@@ -1,6 +1,7 @@
 .PHONY: server-build server-run server-watch format lint client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
+PUBLISH_DIR ?= src/ElmishTodos.Server/bin/Release/publish
 
 server-build:
 	dotnet build src/ElmishTodos.Server/ElmishTodos.Server.fsproj
@@ -25,7 +26,9 @@ copy-client-dist: client-build
 	cp -r src/ElmishTodos.Client/dist/* src/ElmishTodos.Server/wwwroot/
 
 publish: copy-client-dist
-	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj -c Release --self-contained -r $(RUNTIME) -p:PublishSingleFile=true -p:PublishTrimmed=true
+	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj \
+		-c Release  -r $(RUNTIME) -o $(PUBLISH_DIR) \
+		--self-contained -p:PublishSingleFile=true -p:PublishTrimmed=true
 
 # ── Database ──────────────────────────────────────────────────────────────
 
