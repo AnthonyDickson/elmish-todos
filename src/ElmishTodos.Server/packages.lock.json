@@ -49,9 +49,9 @@
       },
       "Oxpecker": {
         "type": "Direct",
-        "requested": "[2.0.1, )",
-        "resolved": "2.0.1",
-        "contentHash": "SM1NTPcwWnVm3/1O+vKonrON6CVIj0ktN0NgDYWXiSrnhSI8MoK3rw+KZmttV1ABiV9P7hEs8AAkuOIjh3K9yw==",
+        "requested": "[2.1.0, )",
+        "resolved": "2.1.0",
+        "contentHash": "hTI5MyDD5Zr59gpBfnryAaPxIc7OnI6Lp3O4CdW1Zj7zIQd05GRaLftnYRqQdWe6vhk8yNZf7xdC+QxosSjjtg==",
         "dependencies": {
           "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
           "Oxpecker.ViewEngine": "2.0.1",
@@ -70,15 +70,15 @@
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.16.10, )",
-        "resolved": "2.16.10",
-        "contentHash": "dJsam1uxJ+h6YzaqDGjja1y3miyBd4VDumMwwow03yJapiRp3OtV5lMaOUvp8w5b16gAflYyvfj7HDL+0X2Rqw=="
+        "requested": "[2.16.11, )",
+        "resolved": "2.16.11",
+        "contentHash": "Sa7aHHX3x6qJo/nCOf0MPTi+Nl8tihiEDqWw7mRMajFn6KKElZyM4CP4C6ptUBPFfBWN61dvYcuMe8yWJaeYsA=="
       },
       "SqlHydra.Query": {
         "type": "Direct",
-        "requested": "[4.0.1, )",
-        "resolved": "4.0.1",
-        "contentHash": "LkP+AUiOSMQvmH5bfzVGs9zUszPx7EaiN4IX+eMLwvSsPqhsgdA6QKMqDcYPaTL5TR8bNJn2eJ02w5O9Ndwlug==",
+        "requested": "[4.0.4, )",
+        "resolved": "4.0.4",
+        "contentHash": "8H6cSVZMw63RaVbGB1RPqvr0tEZbezTEH/x6oUnRQPXQxw+NwWcdPkhomezar4OnXkVKYif+AzQpVt6wBqeFgg==",
         "dependencies": {
           "FSharp.Core": "10.1.201",
           "FastExpressionCompiler": "5.1.1"
