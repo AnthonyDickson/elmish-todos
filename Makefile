@@ -27,8 +27,7 @@ copy-client-dist: client-build
 
 publish: copy-client-dist
 	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj \
-		-c Release  -r $(RUNTIME) -o $(PUBLISH_DIR) \
-		--self-contained -p:PublishSingleFile=true -p:PublishTrimmed=true
+		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR)
 
 # ── Database ──────────────────────────────────────────────────────────────
 

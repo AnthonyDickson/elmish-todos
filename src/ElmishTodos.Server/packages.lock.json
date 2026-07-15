@@ -47,6 +47,12 @@
           "SQLitePCLRaw.core": "2.1.11"
         }
       },
+      "Microsoft.NET.ILLink.Tasks": {
+        "type": "Direct",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "Ym29niDgU57YCgFoiAFCswdtq8T68o6aE9ZQ1te4JUsRxg1tfLhF0ZGbLX2WD2BD1mZ4pcfUm7meSozUuh0uWA=="
+      },
       "Oxpecker": {
         "type": "Direct",
         "requested": "[2.1.0, )",
@@ -249,6 +255,13 @@
         "dependencies": {
           "FSharp.Core": "4.7.1"
         }
+      }
+    },
+    "net10.0/linux-x64": {
+      "SQLitePCLRaw.lib.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.11",
+        "contentHash": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ=="
       }
     }
   }
