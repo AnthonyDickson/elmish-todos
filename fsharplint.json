@@ -1,5 +1,5 @@
 {
   "ignoreFiles": [
-    "src/ElmishTodos.Server/Db.fs"
+    "server/ElmishTodos.Server/Db.fs"
   ]
 }

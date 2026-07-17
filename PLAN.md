@@ -53,7 +53,7 @@ Replace the F#/Fable/Elmish client with a Gleam/Lustre SPA, keeping the Vite-bas
 
 | F# Source            | Gleam Destination          | Notes                                                                               |
 | -------------------- | -------------------------- | ----------------------------------------------------------------------------------- |
-| `Shared/Todo.fs`     | `src/todo.gleam`           | `Todo` + `UpdateTodoRequest` custom types. `Guid` → `String`, `DateTime` → `String` |
+| `Shared/Todo.fs`     | `src/todo_item.gleam`     | `Todo` + `UpdateTodoRequest` custom types. `Guid` → `uuid.Uuid`, `DateTime` → `String`. Module named `todo_item` because `todo` is a Gleam keyword. |
 | `Shared/ApiError.fs` | `src/api_error.gleam`      | `ApiError` custom type. `int option` → `Option(Int)`                                |
 | `Shared/Coders.fs`   | Inline in each type module | Thoth auto-codecs → explicit `gleam/dynamic/decode` combinators (~15 LOC per type)  |
 
@@ -78,7 +78,7 @@ Replace the F#/Fable/Elmish client with a Gleam/Lustre SPA, keeping the Vite-bas
 
 | F#                      | Gleam                                       | Notes                                     |
 | ----------------------- | ------------------------------------------- | ----------------------------------------- |
-| `Guid`                  | `String`                                    | Generate V7 UUIDs via `youid.v7()`        |
+| `Guid`                  | `uuid.Uuid`                                 | Use `youid` for V7 generation + `uuid.from_string`/`uuid.to_string` for JSON |
 | `DateTime`              | `String`                                    | ISO 8601 strings. Parse/format as needed. |
 | `bool`                  | `Bool`                                      | Identical                                 |
 | `string`                | `String`                                    | Identical                                 |
@@ -268,10 +268,10 @@ client-build:
 
 # After
 client-build:
-	cd src/ElmishTodos.Client && gleam build --target javascript && npx vite build
+	cd client && gleam build --target javascript && npx vite build
 ```
 
-`copy-client-dist` and `publish` targets unchanged — they still copy `dist/` → `wwwroot/` and publish the server.
+`copy-client-dist` copies `client/dist/` → `server/ElmishTodos.Server/wwwroot/`. `publish` target unchanged — publishes the server to a self-contained binary.
 
 ### vite.config.ts
 
@@ -327,14 +327,11 @@ export default defineConfig({
 
 ### Phase 1: Scaffold (30 min)
 
-1. **Create Gleam project** inside `src/`:
+1. **Create Gleam project** at the repo root:
    ```bash
-   cd src && gleam new elmish_todos_client
+   gleam new client
    ```
-2. **Rename to match existing directory** or restructure:
-   - Target: `src/ElmishTodos.Client/` becomes a Gleam project
-   - Clean out the old project first, or create alongside and swap
-3. **Configure `gleam.toml`**:
+2. **Update `gleam.toml`** to use `name = "elmish_todos_client"`
    ```toml
    name = "elmish_todos_client"
    version = "1.0.0"
@@ -348,23 +345,24 @@ export default defineConfig({
    gleam_javascript = "~> 0.12"
    lustre = "~> 5.7"
    modem = "~> 2.1"
+   youid = "~> 1.6"
    ```
-4. **Install npm deps** (strip React, add vite-gleam):
+3. **Install npm deps** (strip React, add vite-gleam):
    ```bash
    npm remove react react-dom @types/react @types/react-dom
    npm install vite-gleam
    ```
-5. **Update `vite.config.ts`** — add `gleam()` plugin
-6. **Move assets** — `app.css` + `public/` + `index.html` into Gleam project root
-7. **Verify** `gleam build --target javascript` succeeds on empty project
+4. **Update `vite.config.ts`** — add `gleam()` plugin
+5. **Move assets** — `app.css` + `public/` + `index.html` into Gleam project root
+6. **Verify** `gleam build --target javascript` succeeds
 
 ### Phase 2: Shared Types + JSON Codecs (1 hr)
 
 Create these modules (order matters — no dependencies between them):
 
 1. **`src/api_error.gleam`** — `ApiError` type + JSON decoder
-2. **`src/todo.gleam`** — `Todo` + `UpdateTodoRequest` types + JSON decoders/encoders
-3. **Use `youid` package** — `youid.v7()` replaces `Guid.CreateVersion7()`, no wrapper module needed
+2. **`src/todo_item.gleam`** — `Todo` + `UpdateTodoRequest` types + JSON decoders/encoders. Named `todo_item` because `todo` is a Gleam keyword. `Todo.id` uses `uuid.Uuid` from the `youid` package (not bare `String`).
+3. **Use `youid` package** — `youid.v7()` replaces `Guid.CreateVersion7()`. `uuid.from_string` and `uuid.to_string` handle JSON ↔ Uuid conversion.
 
 Verify: write a quick test decoding a sample JSON response from the real API.
 
@@ -508,28 +506,29 @@ Key translations:
 1. **Update Makefile** — replace `client-build` and `client-watch`
 2. **Remove F# client project** from solution
 3. **Remove client F# packages** from `Directory.Packages.props`
-4. **Remove Fable/Feliz/Elmish references** from docs
+4. **Update documentation:**
+   - Rewrite `docs/client-architecture.md` — replace Elmish/Feliz/React component patterns with Lustre's nested MVU + component system. Cover: Lustre component boundaries, `lustre.element` vs `lustre.simple`, effect mapping between parent/child, and Modem routing patterns.
+   - Remove Fable/Feliz/Elmish references from `AGENTS.md` and any other docs.
 5. **Test publish pipeline** — `make publish` still works end-to-end
 
 ### Phase 10: Absorb Shared Project into Server (15 min)
 
 The Shared project only existed to share types between the Fable client and the server. With the client gone, absorb those types directly into the server project and delete the Shared project entirely:
 
-1. **Move** `ApiError.fs`, `Coders.fs`, `Todo.fs` from `src/ElmishTodos.Shared/` into `src/ElmishTodos.Server/`
+1. **Move** `ApiError.fs`, `Coders.fs`, `Todo.fs` from `server/ElmishTodos.Server/` (where they were previously absorbed) — already done as part of Phase 10 in a prior iteration.
 2. **Rename namespaces** from `ElmishTodos.Shared.*` to `ElmishTodos.Server.*` in the moved files
 3. **Update imports** in `Auth.fs`, `Todos.fs`, `Program.fs`, `Json.fs` — change `open ElmishTodos.Shared.*` to `open ElmishTodos.Server.*`
 4. **Simplify** `Coders.fs` — remove `#if FABLE_COMPILER` conditional, keep only `Thoth.Json.Net`
 5. **Update** `ElmishTodos.Server.fsproj`:
    - Add `Compile` items for the three moved files (before the existing files — `ApiError.fs` before `Coders.fs` before `Todo.fs`)
    - Remove `ProjectReference` to `ElmishTodos.Shared`
-6. **Remove** Shared project from solution and delete `src/ElmishTodos.Shared/` directory
-7. **Remove** `Thoth.Json.Net` `PackageReference` from the server `.fsproj` (now pulled in via the moved files)
-8. **Verify** server builds cleanly
+6. **Remove** Shared project from solution and delete `server/ElmishTodos.Shared/` directory (if it exists)
+7. **Verify** server builds cleanly
 
 ## Project Structure (Final)
 
 ```
-src/elmish_todos_client/          # Gleam project
+client/                           # Gleam project
 ├── gleam.toml
 ├── manifest.toml
 ├── package.json
@@ -541,13 +540,17 @@ src/elmish_todos_client/          # Gleam project
 │   ├── app.gleam                # Entry point + shell + routing
 │   ├── todo_page.gleam          # Full TodoMVC (model, update, view)
 │   ├── effect.gleam             # Effect type + interpreter (all I/O boundary)
-│   ├── todo.gleam               # Todo + UpdateTodoRequest types + JSON codecs
+│   ├── todo_item.gleam          # Todo + UpdateTodoRequest types + JSON codecs
 │   ├── api_error.gleam          # ApiError type + JSON codec
 │   ├── http.gleam               # HTTP client used by the interpreter
 │   └── app.css                  # Tailwind v4 entry
+├── test/                        # gleeunit tests
 ├── build/                       # gleam build output (gitignored)
 │   └── dev/javascript/
 └── dist/                        # Vite bundle output (gitignored)
+server/
+  ElmishTodos.Server/            # Oxpecker backend (unchanged)
+tests/                           # future .NET test project
 ```
 
 ## Testing Strategy

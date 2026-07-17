@@ -10,8 +10,8 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=src/ElmishTodos.Server/todos.db"
-let migrationsPath = "src/ElmishTodos.Server/migrations"
+let connectionString = "Data Source=server/ElmishTodos.Server/todos.db"
+let migrationsPath = "server/ElmishTodos.Server/migrations"
 let scriptPrefix = "ElmishTodos.Server.migrations."
 
 // DbUp's WithScriptsFromFileSystem uses bare filenames as ScriptName,
