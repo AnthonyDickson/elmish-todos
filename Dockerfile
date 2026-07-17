@@ -8,6 +8,10 @@ RUN apt-get update \
     && apt-get update \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Gleam
+RUN curl -fsSL https://github.com/gleam-lang/gleam/releases/download/v1.17.0/gleam-v1.17.0-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /usr/local/bin
+
 WORKDIR /src
 
 COPY ./dotnet-tools.json ./
@@ -16,12 +20,11 @@ RUN dotnet tool restore
 COPY *.props *.targets ./
 COPY ElmishTodos.slnx ./
 COPY src/ElmishTodos.Shared/*.fsproj src/ElmishTodos.Shared/
-COPY src/ElmishTodos.Client/*.fsproj src/ElmishTodos.Client/
 COPY src/ElmishTodos.Server/*.fsproj src/ElmishTodos.Server/
 RUN dotnet restore ElmishTodos.slnx
 
-COPY src/ElmishTodos.Client/package*.json src/ElmishTodos.Client/
-RUN npm ci --prefix src/ElmishTodos.Client
+COPY src/elmish_todos_client/package*.json src/elmish_todos_client/
+RUN npm ci --prefix src/elmish_todos_client
 
 COPY ./Makefile ./
 COPY ./src ./src

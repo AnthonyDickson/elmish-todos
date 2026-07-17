@@ -16,14 +16,14 @@ lint:
 	dotnet fsharplint lint ElmishTodos.slnx
 
 client-watch:
-	dotnet fable watch . --cwd src/ElmishTodos.Client --outDir build --run npx vite
+	cd src/elmish_todos_client && npx vite
 
 client-build:
-	dotnet fable . --cwd src/ElmishTodos.Client --outDir build --run npx vite build
+	cd src/elmish_todos_client && gleam build --target javascript && npx vite build
 
 copy-client-dist: client-build
 	mkdir -p src/ElmishTodos.Server/wwwroot
-	cp -r src/ElmishTodos.Client/dist/* src/ElmishTodos.Server/wwwroot/
+	cp -r src/elmish_todos_client/dist/* src/ElmishTodos.Server/wwwroot/
 
 publish: copy-client-dist
 	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj \

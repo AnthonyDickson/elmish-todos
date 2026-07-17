@@ -16,13 +16,6 @@
       ],
       "rollForward": false
     },
-    "fable": {
-      "version": "5.5.0",
-      "commands": [
-        "fable"
-      ],
-      "rollForward": false
-    },
     "fsautocomplete": {
       "version": "0.83.0",
       "commands": [

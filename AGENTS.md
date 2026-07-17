@@ -36,7 +36,7 @@ make db-update                  # db-migrate + db-generate (full schema update)
 make db-reset                   # Delete DB, re-apply all migrations, regenerate
 ```
 
-Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `npm install` in `src/ElmishTodos.Client/`.
+Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `npm install` in `src/elmish_todos_client/`.
 
 ## File Structure & Compilation Order
 
@@ -59,12 +59,14 @@ src/
     Todos.fs                          # Store, handlers, routes (vertical slice)
     Program.fs                        # Entry point, DbUp, OpenAPI/Scalar config
     migrations/                       # Numbered .sql files applied by DbUp at startup
-  ElmishTodos.Client/
-    vendor/Router.fs                  # Vendored Feliz.Router
+  elmish_todos_client/
     src/
-      Api.fs                          # HTTP client (get/post/put/patch/delete)
-      TodoPage.fs                     # Todo MVU page (model, update, view)
-      App.fs                          # App shell (routing + page delegation)
+      app.gleam                       # Entry point + app shell + routing
+      todo_page.gleam                 # Full TodoMVC (model, update, view)
+      effect.gleam                    # Effect type + interpreter (all I/O boundary)
+      todo.gleam                      # Todo + UpdateTodoRequest types + JSON codecs
+      api_error.gleam                 # ApiError type + JSON codec
+      http.gleam                      # HTTP client used by the interpreter
       app.css                         # Tailwind CSS v4 entry
 ```
 
@@ -140,17 +142,19 @@ let handler (store : Store) (id : Guid) : EndpointHandler = ...
 
 Each `endpoint` function wraps the handler with OpenAPI metadata via `addOpenApi`. Routes use `/api/todos` prefix for GET/POST and `/api/todos/{id}` for GET/PUT/DELETE.
 
-### Client (`App.fs` + `TodoPage.fs`)
+### Client (Gleam/Lustre SPA)
 
 Two-layer MVU:
 
-- `App.fs` — Thin shell: routes `/`, `/active`, `/completed` → `TodoPage.Visibility`.
-- `TodoPage.fs` — Full TodoMVC: persist to `localStorage` via `initWithLocalStorage` / `updateWithLocalStorage`.
-- `Api.fs` — Typed HTTP client with `ApiResult<'T>` (Success/Failure discriminated union). Uses `fetchUnsafe` (no credentials), `Thoth.Json` for codecs.
+- `app.gleam` — Entry point + thin shell: Modem routing + delegate to todo page. Effect interpreter wiring.
+- `todo_page.gleam` — Full TodoMVC: model, update (pure, returns `Effect` values), view.
+- `effect.gleam` — Custom `Effect` type with 7 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`) + interpreter that runs them against real browser APIs.
+- `todo.gleam` / `api_error.gleam` — Shared types with explicit `gleam_json` decoders.
+- `http.gleam` — Thin `gleam_fetch` wrappers used by the effect interpreter.
 
 ### Static Assets
 
-**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/ElmishTodos.Client/public/`. Vite serves them at root in dev and copies them into `dist/` on build. They reach the server via `make copy-client-dist`.
+**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/elmish_todos_client/public/`. Vite serves them at root in dev and copies them into `dist/` on build. They reach the server via `make copy-client-dist`.
 
 **Server-only assets** (e.g. `robots.txt` that should exist regardless of the client bundle) live in `src/ElmishTodos.Server/wwwroot/`. Note that `wwwroot/` is gitignored and recreated by `copy-client-dist`, so the source of truth for any persisted file must live elsewhere (or use a build step).
 

@@ -511,6 +511,21 @@ Key translations:
 4. **Remove Fable/Feliz/Elmish references** from docs
 5. **Test publish pipeline** — `make publish` still works end-to-end
 
+### Phase 10: Absorb Shared Project into Server (15 min)
+
+The Shared project only existed to share types between the Fable client and the server. With the client gone, absorb those types directly into the server project and delete the Shared project entirely:
+
+1. **Move** `ApiError.fs`, `Coders.fs`, `Todo.fs` from `src/ElmishTodos.Shared/` into `src/ElmishTodos.Server/`
+2. **Rename namespaces** from `ElmishTodos.Shared.*` to `ElmishTodos.Server.*` in the moved files
+3. **Update imports** in `Auth.fs`, `Todos.fs`, `Program.fs`, `Json.fs` — change `open ElmishTodos.Shared.*` to `open ElmishTodos.Server.*`
+4. **Simplify** `Coders.fs` — remove `#if FABLE_COMPILER` conditional, keep only `Thoth.Json.Net`
+5. **Update** `ElmishTodos.Server.fsproj`:
+   - Add `Compile` items for the three moved files (before the existing files — `ApiError.fs` before `Coders.fs` before `Todo.fs`)
+   - Remove `ProjectReference` to `ElmishTodos.Shared`
+6. **Remove** Shared project from solution and delete `src/ElmishTodos.Shared/` directory
+7. **Remove** `Thoth.Json.Net` `PackageReference` from the server `.fsproj` (now pulled in via the moved files)
+8. **Verify** server builds cleanly
+
 ## Project Structure (Final)
 
 ```

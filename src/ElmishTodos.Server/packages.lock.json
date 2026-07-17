@@ -106,6 +106,14 @@
         "resolved": "6.0.15",
         "contentHash": "w0eaoyVitzgBiHTILEnj23smrbrxZ1nLF7K8uOyG6rvrctRtC0NTuSYHoB/3aq+B9hi9E/DiW9pOtNto5V9P3g=="
       },
+      "Fable.Core": {
+        "type": "Transitive",
+        "resolved": "3.1.6",
+        "contentHash": "w6M1F0zoLk4kTFc1Lx6x1Ft6BD3QwRe0eaLiinAqbjVkcF+iK+NiXGJO+a6q9RAF9NCg0vI48Xku7aNeqG4JVw==",
+        "dependencies": {
+          "FSharp.Core": "4.7.1"
+        }
+      },
       "FastExpressionCompiler": {
         "type": "Transitive",
         "resolved": "5.1.1",
@@ -245,15 +253,6 @@
         "dependencies": {
           "FSharp.Core": "[10.1.301, )",
           "Thoth.Json.Net": "[12.0.0, )"
-        }
-      },
-      "Fable.Core": {
-        "type": "CentralTransitive",
-        "requested": "[5.2.0, )",
-        "resolved": "3.1.6",
-        "contentHash": "w6M1F0zoLk4kTFc1Lx6x1Ft6BD3QwRe0eaLiinAqbjVkcF+iK+NiXGJO+a6q9RAF9NCg0vI48Xku7aNeqG4JVw==",
-        "dependencies": {
-          "FSharp.Core": "4.7.1"
         }
       }
     },

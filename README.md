@@ -109,7 +109,7 @@ Oidc__ClientSecret="$(pass show oidc/elmish-todos/client-secret)" \
 
 ### Static Assets
 
-**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/ElmishTodos.Client/public/`. Vite serves them at root in dev and copies them into `dist/` on build.
+**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/elmish_todos_client/public/`. Vite serves them at root in dev and copies them into `dist/` on build.
 
 **Server-only assets** (e.g. `robots.txt`) live in `src/ElmishTodos.Server/wwwroot/`. The `wwwroot/` directory is gitignored and populated by `make copy-client-dist` during publish — persistent server assets should have their source of truth elsewhere (e.g. a build step).
 
