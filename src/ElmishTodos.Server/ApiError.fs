@@ -1,4 +1,4 @@
-namespace ElmishTodos.Shared.ApiError
+namespace ElmishTodos.Server.ApiError
 
 type ApiError = {
     Error : string

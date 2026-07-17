@@ -3,7 +3,7 @@ namespace ElmishTodos.Server.Json
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
-open ElmishTodos.Shared.Coders
+open ElmishTodos.Server.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
 module Json =

@@ -13,6 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ApiError.fs" />
+    <Compile Include="Coders.fs" />
+    <Compile Include="Todo.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Auth.fs" />
     <Compile Include="OpenApi.fs" />
@@ -29,7 +32,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
-    <ProjectReference Include="../ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Oxpecker" />
     <PackageReference Include="Oxpecker.OpenApi" />

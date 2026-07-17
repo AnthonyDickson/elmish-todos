@@ -1,4 +1,4 @@
-namespace ElmishTodos.Shared.Todo
+namespace ElmishTodos.Server.Todo
 
 open System
 

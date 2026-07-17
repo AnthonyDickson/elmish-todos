@@ -3,7 +3,7 @@ namespace ElmishTodos.Server.Todos
 module Store =
     open System
 
-    open ElmishTodos.Shared.Todo
+    open ElmishTodos.Server.Todo
     open ElmishTodos.Server.Db
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
@@ -111,8 +111,8 @@ module Api =
 
     open ElmishTodos.Server.Auth
     open ElmishTodos.Server.Json
-    open ElmishTodos.Shared.ApiError
-    open ElmishTodos.Shared.Todo
+    open ElmishTodos.Server.ApiError
+    open ElmishTodos.Server.Todo
     open Store
 
     module private Helpers =

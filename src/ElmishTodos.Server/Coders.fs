@@ -1,10 +1,6 @@
-namespace ElmishTodos.Shared.Coders
+namespace ElmishTodos.Server.Coders
 
-#if FABLE_COMPILER
-open Thoth.Json
-#else
 open Thoth.Json.Net
-#endif
 
 module Decode =
     let inline cachedDecoder<'T> : Decoder<'T> =

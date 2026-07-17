@@ -47,11 +47,11 @@ ElmishTodos.slnx                      # XML-based solution format
 Directory.Build.props                 # Enables Central Package Management
 Directory.Packages.props              # All NuGet package versions
 src/
-  ElmishTodos.Shared/
-    ApiError.fs                       # ApiError record type
-    Coders.fs                         # Generic JSON encode/decode (conditional Thoth)
-    Todo.fs                           # Todo + UpdateTodoRequest types
   ElmishTodos.Server/
+    ApiError.fs                       # ApiError record type
+    Coders.fs                         # Generic JSON encode/decode
+    Todo.fs                           # Todo + UpdateTodoRequest types
+    Config.fs                         # OIDC/OAuth2 configuration
     Auth.fs                           # OIDC auth setup (cookie + JWT bearer)
     OpenApi.fs                        # FSharpRecordSchemaTransformer
     Json.fs                           # JSON read/write helpers
@@ -93,7 +93,7 @@ Single-file vertical slice with nested modules:
 - `Api` — Endpoint handler sub-modules (`GetAll`, `Get`, `Create`, `Update`, `Delete`), each exposing a `handler` and an `endpoint` function
 - `Todos` (top-level, `[<RequireQualifiedAccess>]`) — public API: `Todos.Store`, `Todos.endpoints`
 
-The `Store` holds a `QueryContextFactory` (from `Db.fs`) wired at startup in `Program.fs`. All queries use SqlHydra computation expressions (`selectTask`, `insertTask`, `updateTask`, `deleteTask`). A thin mapping layer copies between `main.Todos` DB rows and the Shared `Todo` API type — the types are structurally identical thanks to SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`) in the migration SQL.
+The `Store` holds a `QueryContextFactory` (from `Db.fs`) wired at startup in `Program.fs`. All queries use SqlHydra computation expressions (`selectTask`, `insertTask`, `updateTask`, `deleteTask`). A thin mapping layer copies between `main.Todos` DB rows and the `Todo` API type — the types are structurally identical thanks to SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`) in the migration SQL.
 
 ### Database (`Db.fs` + `migrations/`)
 

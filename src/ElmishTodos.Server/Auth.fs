@@ -12,8 +12,8 @@ open Microsoft.OpenApi
 open Oxpecker
 
 open ElmishTodos.Server.Config
-open ElmishTodos.Shared.ApiError
-open ElmishTodos.Shared.Coders
+open ElmishTodos.Server.ApiError
+open ElmishTodos.Server.Coders
 
 [<RequireQualifiedAccess>]
 module Auth =

@@ -19,7 +19,7 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 
-open ElmishTodos.Shared.ApiError
+open ElmishTodos.Server.ApiError
 open ElmishTodos.Server.Auth
 open ElmishTodos.Server.Config
 open ElmishTodos.Server.Json

@@ -529,7 +529,7 @@ The Shared project only existed to share types between the Fable client and the 
 ## Project Structure (Final)
 
 ```
-src/ElmishTodos.Client/          # Gleam project
+src/elmish_todos_client/          # Gleam project
 ├── gleam.toml
 ├── manifest.toml
 ├── package.json
