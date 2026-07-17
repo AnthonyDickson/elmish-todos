@@ -10,6 +10,7 @@ server-run:
 	ASPNETCORE_ENVIRONMENT=Development dotnet run --project server/ElmishTodos.Server
 
 format:
+	gleam format
 	dotnet fantomas .
 
 lint:

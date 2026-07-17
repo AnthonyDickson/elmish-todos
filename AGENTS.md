@@ -63,10 +63,12 @@ client/
   src/
     app.gleam                         # Entry point + app shell + routing
     todo_page.gleam                   # Full TodoMVC (model, update, view)
-    effect.gleam                      # Effect type + interpreter (all I/O boundary)
+    effect.gleam                      # Effect type + interpreter + HTTP constructors
+    http_effect.gleam                 # HTTP transport: HttpMethod, HttpError, send/send_with
+    effect_ffi.mjs                    # Browser FFI (localStorage, redirect)
+    response.gleam                    # Decode helpers + JSON error formatting
     todo.gleam                        # Todo + UpdateTodoRequest types + JSON codecs
     api_error.gleam                   # ApiError type + JSON codec
-    http.gleam                        # HTTP client used by the interpreter
     app.css                           # Tailwind CSS v4 entry
 ```
 
@@ -148,9 +150,11 @@ Two-layer MVU:
 
 - `app.gleam` — Entry point + thin shell: Modem routing + delegate to todo page. Effect interpreter wiring.
 - `todo_page.gleam` — Full TodoMVC: model, update (pure, returns `Effect` values), view.
-- `effect.gleam` — Custom `Effect` type with 7 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`) + interpreter that runs them against real browser APIs.
+- `effect.gleam` — Custom `Effect` type with 7 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`) + interpreter + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`) + `from_promise` for bridging custom promises. Devs only need to import `effect` for everyday effects.
+- `http_effect.gleam` — HTTP transport layer. Defines `HttpMethod` and `HttpError` types, exposes `send` / `send_with` (configurable request building). Depends only on stdlib — the extension point for auth headers, retry logic, or custom HTTP methods.
+- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage` and `window.location.assign`.
+- `response.gleam` — `decode_success` (2xx body → typed `Result`) and `http_error_to_api_error` (`HttpError` → `ApiError`) helpers. Pages that branch on specific HTTP status codes (e.g. 401) also need `import http_effect.{HttpError}`.
 - `todo.gleam` / `api_error.gleam` — Shared types with explicit `gleam_json` decoders.
-- `http.gleam` — Thin `gleam_fetch` wrappers used by the effect interpreter.
 
 ### Static Assets
 

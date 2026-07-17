@@ -1,5 +1,6 @@
 # TODO
 
+- Check whether gleam code should be pulled out to top level and add folders for namespacing this project's modules.
 - Add test suite
 - Check whether the code is "production ready"
 - Make sure documentation is clear and concise for both devs and would-be end-users
@@ -61,7 +62,7 @@ Replace the F#/Fable/Elmish client with a Gleam/Lustre SPA, keeping the Vite-bas
 
 | F# Source                 | Gleam Destination     | Notes                                                             |
 | ------------------------- | --------------------- | ----------------------------------------------------------------- |
-| `Client/src/Api.fs`       | `src/http.gleam`      | `get`/`post`/`put`/`patch`/`delete` wrappers around `gleam_fetch` |
+| `Client/src/Api.fs`       | `src/http_effect.gleam`   + `src/response.gleam` | HTTP transport (`send`/`send_with`) + decoding helpers |
 | `Client/vendor/Router.fs` | Removed               | Replaced by `modem` library                                       |
 | `Client/src/App.fs`       | `src/app.gleam`       | Thin shell: Modem routing + delegate to todo page                 |
 | `Client/src/TodoPage.fs`  | `src/todo_page.gleam` | Full TodoMVC: model, update, view, localStorage                   |
@@ -366,53 +367,148 @@ Create these modules (order matters — no dependencies between them):
 
 Verify: write a quick test decoding a sample JSON response from the real API.
 
-### Phase 3: HTTP Client (1 hr)
+### Phase 3: Response Decoding + Error Formatting (30 min)
 
-Create `src/http.gleam`:
+Create `src/response.gleam`:
 
-1. `get(url)` — returns `Promise(Result(a, ApiError))`
-2. `post(url, body)` — ditto
-3. `put(url, body)` — ditto
-4. `patch(url, body)` — ditto
-5. `delete(url)` — ditto
+1. `decode_success(body, decoder)` / `http_error_to_api_error(err)` — converts raw HTTP results
+   into `Result(a, ApiError)` by JSON-decoding the success body and parsing
+   `HttpError` bodies as `ApiError` JSON on a best-effort basis
+2. `format_decode_error` / `format_decode_errors` — human-readable JSON parse
+   error messages
 
-Map the current response-handling logic: branch on `response.ok`, decode success vs error JSON.
+All raw HTTP I/O (`fetch`, status checking, request building) lives inside
+`http_effect.gleam`'s `send`/`send_with`, which depends only on stdlib.
+`effect.gleam` imports `http_effect` for `HttpMethod`, `HttpError`, and
+`send` to build thin per-method constructors (`get`, `post`, …).
+Client code only needs to import `effect` for everyday effects;
+`http_effect.send_with` is the power-user extension point for auth headers
+and custom HTTP methods.
 
-Verify: call `GET /api/todos` against the running backend and inspect the decoded result.
+### Phase 4: Effect System + Interpreter (1 hr) ✅
 
-### Phase 4: Effect System + Interpreter (1 hr)
+Create `src/effect.gleam`, `src/http_effect.gleam`, and `src/effect_ffi.mjs`.
 
-Create `src/effect.gleam`:
+**`HttpMethod`** — a custom 5-variant type defined in `http_effect.gleam`.
+Restricted to the methods the app supports. Uses `gleam/http.Method` internally but avoids the stdlib's 10 variants
+(Head, Trace, Connect, Options, Other) which this app never uses. Compiler-enforced
+exhaustiveness — no silent no-op branch for unsupported methods.
 
 ```gleam
-type HttpMethod {
+pub type HttpMethod {
   Get
   Post
   Put
   Patch
   Delete
 }
+```
 
-type Effect(msg) {
-  HttpRequest(HttpMethod, String, Option(String), fn(Result(String, String)) -> msg)
-  LoadFromStore(String, fn(Result(String, String)) -> msg)
-  SaveToStore(String, String)
-  Redirect(String)
-  After(Int, msg)
-  Batch(List(Effect(msg)))
+**`HttpError`** — a two-variant type defined in `http_effect.gleam` that classifies
+HTTP failures without parsing JSON. Callers can branch on status codes before
+decoding:
+
+```gleam
+pub type HttpError {
+  NetworkError(String)          // fetch-level failure (timeout, connection drop)
+  HttpError(status: Int, body: String)  // non-2xx response, raw body
+}
+```
+
+**`Effect(msg)`** — seven variants with named fields. All variants carry raw
+strings — the effect system describes I/O intent, not data semantics. HTTP
+callbacks receive `Result(String, HttpError)`, storage callbacks receive
+`Result(String, String)`:
+
+```gleam
+pub type Effect(msg) {
+  HttpRequest(method: HttpMethod, url: String, body: String, runner: fn(fn(msg) -> Nil) -> Nil)
+  LoadFromStore(key: String, callback: fn(Result(String, String)) -> msg)
+  SaveToStore(key: String, value: String)
+  Redirect(url: String)
+  After(delay: Int, message: msg)
+  Batch(effects: List(Effect(msg)))
   None
 }
 ```
 
-Seven variants cover the entire app at any scale. Callers parameterize with keys, decoders, URLs, and message constructors — the `Effect` type never needs to grow.
+**Per-method constructors** — `effect.gleam` provides thin per-method helpers
+(`get`, `post`, `put`, `patch`, `delete`) that delegate to `http_effect.send`
+and wrap the result in an `HttpRequest` variant. Body params are raw `String`
+with an explicit `content_type` so callers aren't locked into JSON:
 
-**Interpreter** (`run` function, ~25 LOC) — the single place all I/O hits the real world:
+```gleam
+// effect.gleam — the only import most pages need
+pub fn get(url, callback) -> Effect(msg)
+pub fn post(url, body, content_type, callback) -> Effect(msg)
+pub fn put(url, body, content_type, callback) -> Effect(msg)
+pub fn patch(url, body, content_type, callback) -> Effect(msg)
+pub fn delete(url, callback) -> Effect(msg)
+```
 
-- `HttpRequest` → `gleam_fetch` + JSON encode/decode
-- `LoadFromStore` / `SaveToStore` → `window.localStorage` FFI
+`from_promise` bridges raw `http_effect` promises into `Effect` values:
+
+```gleam
+// effect.gleam — bridge for custom HTTP behaviour
+pub fn from_promise(method, url, body, promise, callback) -> Effect(msg)
+```
+
+Template users add custom HTTP methods or override behaviour via
+`http_effect.send` / `http_effect.send_with`:
+
+```gleam
+// http_effect.gleam — power-user extension point
+pub fn send(method, url, body, content_type) -> Promise(Result(String, HttpError))
+pub fn send_with(method, url, body, content_type, transform) -> Promise(...)
+```
+
+**Response decoding** — two functions in `response.gleam`:
+
+- `decode_success(body, decoder)` — decodes a 2xx body into `Result(a, ApiError)`
+- `http_error_to_api_error(err)` — converts `HttpError` → `ApiError` (best-effort JSON
+  parse, falls back to generic on failure; `NetworkError` surfaced with no status code)
+
+Callers already branch on `Result(String, HttpError)` from the effect callback,
+so they call these directly on the variants they've already matched:
+
+```gleam
+import http_effect.{HttpError}
+
+fn callback(result: Result(String, HttpError)) {
+  case result {
+    Ok(raw) ->
+      case response.decode_success(raw, todo_item.todo_decoder()) {
+        Ok(todo) -> TodoCreated(todo)
+        Error(err) -> TodoCreateFailed(err)
+      }
+    Error(HttpError(401, _)) ->
+      UserRedirectedToLogin
+    Error(err) ->
+      TodoCreateFailed(response.http_error_to_api_error(err))
+  }
+}
+```
+
+**`response.gleam`** — pure utility module. Exports `decode_success` (2xx body
+→ `Result(a, ApiError)`) and `http_error_to_api_error` (`HttpError` → `ApiError`).
+Depends on `http_effect` (for `HttpError`) and `api_error` (for `ApiError`).
+Client code imports this alongside `http_effect`.
+
+**Interpreter** (`run` function) — the single place all I/O hits the real world:
+
+- `HttpRequest` → calls the captured runner closure, which builds a
+  `gleam/http` request, sends it via `gleam_fetch`, reads the text body,
+  classifies the outcome (2xx → `Ok(body)`, non-2xx → `Error(HttpError(status, body))`,
+  network failure → `Error(NetworkError(description))`), and dispatches the
+  callback's message
+- `LoadFromStore` / `SaveToStore` → `window.localStorage` FFI (no try/catch —
+  exceptions propagate; if localStorage is broken the app is broken)
 - `Redirect` → `window.location.assign` FFI
-- `After` → `window.setTimeout` FFI
+- `After` → `gleam/javascript/promise.wait` + `promise.tap`
 - `Batch` → recurse over list
+
+**`effect_ffi.mjs`** — thin JS wrappers for browser APIs. Only handles
+localStorage and redirect.
 
 **Wiring into Lustre** — a thin wrapper in `app.gleam` converts the inspectable `Effect` into Lustre's opaque one:
 
@@ -537,13 +633,15 @@ client/                           # Gleam project
 ├── public/
 │   └── favicon.svg
 ├── src/
-│   ├── app.gleam                # Entry point + shell + routing
-│   ├── todo_page.gleam          # Full TodoMVC (model, update, view)
-│   ├── effect.gleam             # Effect type + interpreter (all I/O boundary)
+   │   ├── http_effect.gleam          # HTTP transport: HttpMethod, HttpError, send/send_with
+│   ├── response.gleam            # Decode helpers + JSON error formatting
+│   ├── effect.gleam             # Effect type + interpreter + per-method HTTP constructors
+│   ├── effect_ffi.mjs           # Browser FFI (localStorage, redirect)
 │   ├── todo_item.gleam          # Todo + UpdateTodoRequest types + JSON codecs
 │   ├── api_error.gleam          # ApiError type + JSON codec
-│   ├── http.gleam               # HTTP client used by the interpreter
-│   └── app.css                  # Tailwind v4 entry
+│   ├── app.css                  # Tailwind v4 entry
+│   ├── app.gleam                # Entry point + shell + routing
+│   ├── todo_page.gleam          # Full TodoMVC (model, update, view)
 ├── test/                        # gleeunit tests
 ├── build/                       # gleam build output (gitignored)
 │   └── dev/javascript/
@@ -565,8 +663,8 @@ fn create_todo_test() {
   model.new_todo |> should.equal("")
 
   case effect {
-    HttpRequest(Post, "/api/todos", Some(body), _) ->
-      body |> should.contain("Buy milk")
+    HttpRequest(method: Post, url: "/api/todos", body: body_str, ..)
+      -> body_str |> should.contain("Buy milk")
     _ -> panic as "expected HttpRequest"
   }
 }
@@ -577,7 +675,50 @@ fn logout_test() {
 }
 ```
 
-The only untestable code is the interpreter itself (~25 LOC of FFI calls), which is intentionally thin. `gleam test` runs on both Erlang and JS targets since `update` never touches browser APIs.
+The only untestable code is the interpreter itself (~20 LOC of FFI calls), which is intentionally thin. `gleam test` runs on both Erlang and JS targets since `update` never touches browser APIs.
+
+## Full Lifecycle Example
+
+Creating a todo from `UserSubmittedNewTodo` through the Lustre loop and back:
+
+```gleam
+import effect
+import http_effect.{HttpError}
+import response
+
+// 1. update returns model + effect
+UserSubmittedNewTodo -> {
+  let body = todo_item.todo_to_json(new_todo) |> json.to_string
+  let effect = effect.post("/api/todos", body, "application/json", fn(result) {
+    case result {
+      Ok(raw) ->
+        case response.decode_success(raw, todo_item.todo_decoder()) {
+          Ok(todo) -> TodoCreated(todo)
+          Error(err) -> TodoCreateFailed(err)
+        }
+      Error(HttpError(401, _)) ->
+        UserRedirectedToLogin
+      Error(err) ->
+        TodoCreateFailed(response.http_error_to_api_error(err))
+    }
+  })
+  #(model, effect)
+}
+
+// 2. Lustre wires the effect into its runtime
+fn update_with_effect(model, msg) {
+  let #(new_model, effect) = update(model, msg)
+  #(new_model, lustre_effect.from(fn(dispatch) { effect.run(effect, dispatch) }))
+}
+
+// 3. effect.run sends via gleam_fetch, reads body, checks status
+// 4. Promise resolves → callback fires → TodoCreated(todo) dispatched
+// 5. Lustre calls update again with TodoCreated(todo)
+```
+
+The `LoadFromStore` callback follows the same pattern — `result.fold` on the
+raw `Result(String, String)`, with `json.parse` and decoding done at the call
+site.
 
 ## Risks & Mitigations
 
@@ -596,4 +737,43 @@ The only untestable code is the interpreter itself (~25 LOC of FFI calls), which
 
 2. **Nested MVU** — Keep the two-layer `App` → `TodoPage` pattern. This repo is a template for non-trivial projects (20K+ LOC) where nested MVU is essential for scaling: each page gets its own `Msg` type (avoids merge conflicts on a giant flat union), its own `Model` (prevents pages from accidentally depending on each other's state), and its own `update` function (keeps diffs reviewable). The cost is small — `effect.map` on each delegation and one wrapper variant per child — and Lustre supports this cleanly. The current `App.fs` architecture (route shell mapping URLs to child messages) is preserved exactly.
 
-3. **Custom `Effect` type + interpreter** — `update` returns pure data (`Effect(msg)` values) describing I/O. A single `run` function interprets them into real browser calls. This makes `update` testable without a browser (assert on the `Effect` value), isolates all FFI in one place, and scales to any page count with a fixed set of 7 effect variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`). Callers parameterize with keys, decoders, and URLs — the type never grows.
+3. **Custom `Effect` type + interpreter** — `update` returns pure data (`Effect(msg)` values) describing I/O. A single `run` function interprets them into real browser calls. This makes `update` testable without a browser (assert on the `Effect` value), isolates all FFI in one place, and scales to any page count with a fixed set of 7 effect variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`).
+
+4. **Raw-string effect payloads** — Both HTTP and storage effects carry raw
+   `String` values. The `Effect(msg)` type describes I/O intent (what URL, what
+   method, what bytes), not data semantics. Callers own serialisation and
+   deserialisation — `response.decode_success` / `response.http_error_to_api_error`
+   convert a raw HTTP result into a typed value inside the callback. This keeps `Effect` naturally
+   single-parameter, avoids coupling the interpreter to `json.Json`, and makes
+   the effect API symmetric across HTTP and storage. For a template project
+   that may store non-JSON data in `localStorage`, this leaves the data format
+   as an explicit caller decision rather than an interpreter assumption.
+
+5. **Closure-based `HttpRequest` runner** — The `HttpRequest` variant stores
+   method, URL, and body as inspectable fields (for test assertions) plus an
+   opaque runner closure that the interpreter calls. The closure captures
+   `http_effect.gleam`'s `send` promise and the caller's callback, keeping the
+   executor logic out of `Effect`.
+
+6. **Per-method constructors** — Instead of a single `request(method, ...)` with
+   an `Option` body and a runtime check for POST-without-body,
+   each HTTP method has its own thin constructor in `effect.gleam` (`get`, `post`,
+   `put`, `patch`, `delete`) that delegates to `http_effect.send`.
+   Custom HTTP behaviour (auth headers, non-standard methods) goes through
+   `http_effect.send` / `http_effect.send_with` directly. Body params are
+   `String` — the caller pre-serialises. No `Option` ambiguity, no panics,
+   no silent no-ops.
+
+7. **Custom `HttpMethod` over `gleam/http.Method`** — The stdlib `Method` type has 10 variants (Head, Trace, Connect, Options, Other). The app only supports 5. Using the stdlib type requires a catch-all pattern in the interpreter (silent no-op) or a panic (runtime crash). A custom 5-variant type gives compiler-enforced exhaustiveness — passing an unsupported method is impossible.
+
+8. **`http.gleam` → `http_effect.gleam`** — Originally named `http_client.gleam`,
+   then `response.gleam` when raw HTTP I/O was moved into `effect.gleam`.
+   Final split: `http_effect.gleam` defines `HttpMethod`, `HttpError`, and
+   `send`/`send_with` (stdlib-only transport layer). `effect.gleam` imports
+   `http_effect` and adds thin per-method constructors (`get`, `post`, …)
+   plus the `Effect` type and interpreter. `response.gleam` imports
+   `HttpError` from `http_effect` and provides pure decoding utilities
+   (`decode_success`, `http_error_to_api_error`). Template users customise
+   HTTP behaviour in `http_effect.gleam` without touching the interpreter.
+
+9. **No exception swallowing in FFI** — `effect_ffi.mjs` does not wrap localStorage calls in try/catch. If `localStorage` is broken (security error, quota exceeded), the exception propagates — silently discarding writes or masking permission errors is worse than crashing.
