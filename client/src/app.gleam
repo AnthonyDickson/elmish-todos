@@ -31,6 +31,7 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
     effect.batch([
       effect.map(todo_effect, TodoPageMsg),
       effect.navigate(UrlChanged),
+      effect.set_title("Elmish TodoMVC"),
     ])
 
   #(model, effects)
@@ -41,7 +42,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
     UrlChanged(path) -> {
       let visibility = path_to_visibility(path)
       let #(todo_model, todo_effect) =
-        todo_page.update(
+        todo_page.update_with_storage(
           model.todo_page,
           todo_page.UserChangedVisibility(visibility),
         )
@@ -49,7 +50,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
     }
     TodoPageMsg(inner_msg) -> {
       let #(inner_model, inner_effect) =
-        todo_page.update(model.todo_page, inner_msg)
+        todo_page.update_with_storage(model.todo_page, inner_msg)
       #(Model(todo_page: inner_model), effect.map(inner_effect, TodoPageMsg))
     }
   }

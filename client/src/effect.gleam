@@ -26,6 +26,7 @@ pub type Effect(msg) {
   LoadFromStore(key: String, callback: fn(Result(String, String)) -> msg)
   SaveToStore(key: String, value: String)
   Redirect(url: String)
+  SetTitle(title: String)
   After(delay: Int, message: msg)
   Navigate(handler: fn(String) -> msg)
   PushUrl(url: String)
@@ -138,6 +139,12 @@ pub fn replace_url(url: String) -> Effect(msg) {
   ReplaceUrl(url:)
 }
 
+/// Set the document title (shown in the browser tab).
+///
+pub fn set_title(title: String) -> Effect(msg) {
+  SetTitle(title:)
+}
+
 @external(javascript, "./effect_ffi.mjs", "loadFromStore")
 fn raw_load_from_store(key: String) -> String
 
@@ -156,6 +163,9 @@ fn raw_replace_url(url: String) -> Nil
 @external(javascript, "./effect_ffi.mjs", "redirect")
 fn raw_redirect(url: String) -> Nil
 
+@external(javascript, "./effect_ffi.mjs", "setTitle")
+fn raw_set_title(title: String) -> Nil
+
 /// Transform an `Effect(a)` into an `Effect(b)` by applying a function to
 /// every message the effect produces. This is the analogue of `Cmd.map` in
 /// Elmish — it lets a parent component embed a child's effects.
@@ -170,6 +180,7 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
       LoadFromStore(key:, callback: fn(result) { f(callback(result)) })
     SaveToStore(key:, value:) -> SaveToStore(key:, value:)
     Redirect(url:) -> Redirect(url:)
+    SetTitle(title:) -> SetTitle(title:)
     After(delay:, message:) -> After(delay:, message: f(message))
     Navigate(handler:) -> Navigate(handler: fn(path) { f(handler(path)) })
     PushUrl(url:) -> PushUrl(url:)
@@ -215,6 +226,8 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
     SaveToStore(key:, value:) -> raw_save_to_store(key, value)
 
     Redirect(url:) -> raw_redirect(url)
+
+    SetTitle(title:) -> raw_set_title(title)
 
     After(delay:, message:) -> {
       let _ =

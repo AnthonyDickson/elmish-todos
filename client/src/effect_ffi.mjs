@@ -57,3 +57,7 @@ export function pushUrl(url) {
 export function replaceUrl(url) {
   history.replaceState(null, "", url);
 }
+
+export function setTitle(title) {
+  document.title = title;
+}
