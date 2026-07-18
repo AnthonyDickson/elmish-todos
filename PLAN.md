@@ -19,7 +19,7 @@ Replace the F#/Fable/Elmish client with a Gleam/Lustre SPA, keeping the Vite-bas
 | ------------ | -------------------------------- | --------------------------------- |
 | Language     | F# (Fable → JS)                  | Gleam (native JS target)          |
 | Framework    | Elmish + Feliz (React)           | Lustre (native VDOM)              |
-| Router       | Feliz.Router (vendored, 200 LOC) | Modem (~50 LOC)                   |
+| Router       | Feliz.Router (vendored, 200 LOC) | Custom (browser APIs via effect system) |
 | HTTP         | Fable.Fetch                      | gleam_fetch                       |
 | JSON         | Thoth.Json (auto-codecs)         | gleam_json + gleam/dynamic/decode |
 | CSS          | Tailwind v4 (Vite plugin)        | Tailwind v4 (unchanged)           |
@@ -63,7 +63,7 @@ Replace the F#/Fable/Elmish client with a Gleam/Lustre SPA, keeping the Vite-bas
 | F# Source                 | Gleam Destination     | Notes                                                             |
 | ------------------------- | --------------------- | ----------------------------------------------------------------- |
 | `Client/src/Api.fs`       | `src/http_effect.gleam`   + `src/response.gleam` | HTTP transport (`send`/`send_with`) + decoding helpers |
-| `Client/vendor/Router.fs` | Removed               | Replaced by `modem` library                                       |
+| `Client/vendor/Router.fs` | Removed               | Replaced by custom navigation effects (click interception, popstate, pushState) |
 | `Client/src/App.fs`       | `src/app.gleam`       | Thin shell: Modem routing + delegate to todo page                 |
 | `Client/src/TodoPage.fs`  | `src/todo_page.gleam` | Full TodoMVC: model, update, view, localStorage                   |
 
@@ -239,7 +239,6 @@ gleam_http = "~> 4.3"
 gleam_fetch = "~> 1.4"
 gleam_javascript = "~> 0.12"
 lustre = "~> 5.7"
-modem = "~> 2.1"
 youid = "~> 2.1"
 ```
 
@@ -345,7 +344,6 @@ export default defineConfig({
    gleam_fetch = "~> 1.4"
    gleam_javascript = "~> 0.12"
    lustre = "~> 5.7"
-   modem = "~> 2.1"
    youid = "~> 1.6"
    ```
 3. **Install npm deps** (strip React, add vite-gleam):
@@ -415,10 +413,10 @@ pub type HttpError {
 }
 ```
 
-**`Effect(msg)`** — seven variants with named fields. All variants carry raw
+**`Effect(msg)`** — nine variants with named fields. All variants carry raw
 strings — the effect system describes I/O intent, not data semantics. HTTP
 callbacks receive `Result(String, HttpError)`, storage callbacks receive
-`Result(String, String)`:
+`Result(String, String)`, navigation callbacks receive `String`:
 
 ```gleam
 pub type Effect(msg) {
@@ -427,6 +425,9 @@ pub type Effect(msg) {
   SaveToStore(key: String, value: String)
   Redirect(url: String)
   After(delay: Int, message: msg)
+  Navigate(handler: fn(String) -> msg)
+  PushUrl(url: String)
+  ReplaceUrl(url: String)
   Batch(effects: List(Effect(msg)))
   None
 }
@@ -505,10 +506,13 @@ Client code imports this alongside `http_effect`.
   exceptions propagate; if localStorage is broken the app is broken)
 - `Redirect` → `window.location.assign` FFI
 - `After` → `gleam/javascript/promise.wait` + `promise.tap`
+- `Navigate` → `window.location` + `history.pushState` + click/popstate event listeners via FFI
+- `PushUrl` / `ReplaceUrl` → `history.pushState` / `history.replaceState` via FFI
 - `Batch` → recurse over list
 
-**`effect_ffi.mjs`** — thin JS wrappers for browser APIs. Only handles
-localStorage and redirect.
+**`effect_ffi.mjs`** — thin JS wrappers for browser APIs. Handles
+localStorage, redirect, and client-side navigation (click interception,
+popstate listener, pushState/replaceState).
 
 **Wiring into Lustre** — a thin wrapper in `app.gleam` converts the inspectable `Effect` into Lustre's opaque one:
 
@@ -519,17 +523,25 @@ fn update_with_effect(model, msg) -> #(Model, lustre.Effect(Msg)) {
 }
 ```
 
-### Phase 5: App Shell + Modem Routing (30 min)
+### Phase 5: App Shell + Routing (30 min) ✅
 
 Create `src/app.gleam`:
 
-1. `Model` — holds current `Visibility` + delegates to `TodoPage.Model`
-2. `Msg` — `UrlChanged(List(String))` + `TodoPageMsg(TodoPage.Msg)`
-3. `init` — wire up Modem, fetch initial todos
-4. `update` — route matching: `[]` → All, `["active"]` → Active, `["completed"]` → Completed
-5. `view` — render `TodoPage.view` inside a Modem-provided router wrapper
+1. `Model` — delegates to `TodoPage.Model`
+2. `Msg` — `UrlChanged(String)` + `TodoPageMsg(TodoPage.Msg)`
+3. `init` — delegates to `todo_page.init` + `effect.navigate(UrlChanged)` for client-side routing
+4. `update` — route matching via `uri.path_segments`: `[]` → All, `["active"]` → Active, `["completed"]` → Completed. Delegates to `TodoPage.UserChangedVisibility`. All child effects mapped through `effect.map`.
+5. `view` — delegates to `TodoPage.view` via `element.map`
 
-The current `App.fs` has nested MVU. Preserve this pattern exactly — `UrlChanged` routes directly into `TodoPage.UserChangedVisibility`, and all child effects are mapped through `effect.map`.
+Routing uses our custom `Navigate` effect variant (no modem dependency).
+The effect system's `navigate` constructor sets up click interception on
+internal links, popstate listener for back/forward, and dispatches the
+initial URL on page load. `push_url`/`replace_url` are available for
+programmatic navigation from any update handler.
+
+The only place lustre-native effects appear is `main()` where
+`update_with_effect` bridges our custom `Effect` into lustre's opaque one
+via `effect.run`.
 
 ### Phase 6: TodoPage Model + Update (3–4 hrs)
 
@@ -584,14 +596,27 @@ Key translations:
 1. **`src/app.gleam`** — `pub fn main()` entry point with effect interpreter wiring:
    ```gleam
    pub fn main() {
-     let app = lustre.application(init, update_with_effect, view)
+     let #(init_model, init_effect) = init(Nil)
+
+     let app = lustre.application(
+       init: fn(_) {
+         #(init_model, lustre_effect.from(fn(dispatch) {
+           effect.run(init_effect, dispatch)
+         }))
+       },
+       update: update_with_effect,
+       view: view,
+     )
+
      let assert Ok(_) = lustre.start(app, "#app", Nil)
      Nil
    }
 
    fn update_with_effect(model, msg) {
      let #(new_model, effect) = update(model, msg)
-     #(new_model, effect.from(fn(dispatch) { run(effect, dispatch) }))
+     #(new_model, lustre_effect.from(fn(dispatch) {
+       effect.run(effect, dispatch)
+     }))
    }
    ```
 2. **Update `index.html`** — script src to `./src/app.gleam`

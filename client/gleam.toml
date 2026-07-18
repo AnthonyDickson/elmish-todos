@@ -9,7 +9,6 @@ gleam_http = "~> 4.3"
 gleam_fetch = "~> 1.4"
 gleam_javascript = "~> 0.12"
 lustre = "~> 5.7"
-modem = "~> 2.1"
 youid = "~> 1.6"
 
 [dev_dependencies]

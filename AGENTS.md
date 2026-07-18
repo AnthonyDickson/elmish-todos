@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-A full-stack F# .NET 10 todo app. The backend is a web API using Oxpecker with a SQLite store (DbUp migrations + SqlHydra queries), OIDC auth (cookie + JWT bearer), and Scalar-rendered OpenAPI docs. The frontend is an Elmish (MVU) SPA compiled to JS via Fable, styled with Tailwind CSS v4, and bundled with Vite.
+A full-stack todo app with an Oxpecker F# .NET 10 backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA frontend styled with Tailwind CSS v4 and bundled with Vite.
 
 ## Essential Commands
 
 ```bash
 make server-build    # Build the server
 make server-run      # Run the server (auto-applies DB migrations)
-make client-watch    # Start the client dev server (Vite + Fable watch)
+make client-watch    # Start the client dev server (Vite + Gleam watch)
 make client-build    # Production client bundle
 make copy-client-dist # Copy client dist into server wwwroot/
 make publish         # Single-file publish (builds client, copies assets, publishes server)
@@ -40,7 +40,7 @@ Dev environment via Nix: `nix develop` (or `direnv allow`). Before client comman
 
 ## File Structure & Compilation Order
 
-F# compiles files in the order listed in `.fsproj`. **New files must be inserted before files that depend on them.**
+F# compiles server files in the order listed in `.fsproj`. **New files must be inserted before files that depend on them.** The Gleam client has no ordering constraints.
 
 ```
 ElmishTodos.slnx                      # XML-based solution format
@@ -65,9 +65,9 @@ client/
     todo_page.gleam                   # Full TodoMVC (model, update, view)
     effect.gleam                      # Effect type + interpreter + HTTP constructors
     http_effect.gleam                 # HTTP transport: HttpMethod, HttpError, send/send_with
-    effect_ffi.mjs                    # Browser FFI (localStorage, redirect)
+    effect_ffi.mjs                    # Browser FFI (localStorage, redirect, navigation)
     response.gleam                    # Decode helpers + JSON error formatting
-    todo.gleam                        # Todo + UpdateTodoRequest types + JSON codecs
+    todo_item.gleam                    # Todo + UpdateTodoRequest types + JSON codecs
     api_error.gleam                   # ApiError type + JSON codec
     app.css                           # Tailwind CSS v4 entry
 ```
@@ -148,13 +148,13 @@ Each `endpoint` function wraps the handler with OpenAPI metadata via `addOpenApi
 
 Two-layer MVU:
 
-- `app.gleam` — Entry point + thin shell: Modem routing + delegate to todo page. Effect interpreter wiring.
+- `app.gleam` — Entry point + thin shell: routing via custom navigation effects + delegate to todo page. Effect interpreter wiring.
 - `todo_page.gleam` — Full TodoMVC: model, update (pure, returns `Effect` values), view.
-- `effect.gleam` — Custom `Effect` type with 7 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Batch`, `None`) + interpreter + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`) + `from_promise` for bridging custom promises. Devs only need to import `effect` for everyday effects.
+- `effect.gleam` — Custom `Effect` type with 9 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Navigate`, `PushUrl`, `ReplaceUrl`, `Batch`, `None`) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`) + navigation constructors (`navigate`, `push_url`, `replace_url`). Devs only need to import `effect` for everyday effects.
 - `http_effect.gleam` — HTTP transport layer. Defines `HttpMethod` and `HttpError` types, exposes `send` / `send_with` (configurable request building). Depends only on stdlib — the extension point for auth headers, retry logic, or custom HTTP methods.
-- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage` and `window.location.assign`.
+- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, `window.location.assign`, and client-side navigation (click interception on internal links, popstate listener, `history.pushState`/`replaceState`).
 - `response.gleam` — `decode_success` (2xx body → typed `Result`) and `http_error_to_api_error` (`HttpError` → `ApiError`) helpers. Pages that branch on specific HTTP status codes (e.g. 401) also need `import http_effect.{HttpError}`.
-- `todo.gleam` / `api_error.gleam` — Shared types with explicit `gleam_json` decoders.
+- `todo_item.gleam` / `api_error.gleam` — Shared types with explicit `gleam_json` decoders.
 
 ### Static Assets
 
@@ -187,6 +187,5 @@ Json-serialized `ApiError` records (`{ Error: string; Details: string; StatusCod
 - **Compilation order**: Insert new `.fs` files at the correct position in `.fsproj`.
 - **SqlHydra query parameters**: Function parameters can't be captured directly in query expressions. Bind them to local `let` values first (e.g. `let idStr = id.ToString()` before using in a `where` clause).
 - **Central Package Management**: Versions in `Directory.Packages.props`; project files use bare `<PackageReference Include="..." />`.
-- **Fable output**: `--outDir build` drops the `.fs` infix (`src/App.fs` → `build/src/App.js`). Don't mix with non-`--outDir` builds.
 - **Client needs `npm install`** before first `make client-watch` or `make client-build`.
 - **No test project yet** — add under `tests/`.
