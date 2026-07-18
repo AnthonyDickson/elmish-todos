@@ -20,6 +20,8 @@ make format
 # Lint
 make lint
 
+# Install NPM dependencies for the client
+
 # Start the client dev server
 make client-watch
 

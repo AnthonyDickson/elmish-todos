@@ -1,4 +1,4 @@
-.PHONY: server-build server-run server-watch format lint client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-run server-watch format lint client-install-deps client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
 PUBLISH_DIR ?= server/ElmishTodos.Server/bin/Release/publish
@@ -16,11 +16,14 @@ format:
 lint:
 	dotnet fsharplint lint ElmishTodos.slnx
 
+client-install-deps:
+	cd client && npm install
+
 client-watch:
 	cd client && npx vite
 
 client-build:
-	cd client && gleam build --target javascript && npx vite build
+	cd client && npx vite build
 
 copy-client-dist: client-build
 	mkdir -p server/ElmishTodos.Server/wwwroot
