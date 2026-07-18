@@ -4,6 +4,9 @@ import gleam/http/request
 import gleam/javascript/promise
 import gleam/result
 
+@external(javascript, "./effect_ffi.mjs", "getOrigin")
+fn get_origin() -> String
+
 /// The HTTP methods supported by this application.
 pub type HttpMethod {
   Get
@@ -47,9 +50,9 @@ fn build_request(
   content_type: String,
 ) -> request.Request(String) {
   let req =
-    request.new()
+    request.to(get_origin() <> url)
+    |> result.unwrap(request.new())
     |> request.set_method(to_http_method(method))
-    |> request.set_path(url)
 
   case body {
     "" -> req

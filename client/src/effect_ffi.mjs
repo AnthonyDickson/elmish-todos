@@ -61,3 +61,7 @@ export function replaceUrl(url) {
 export function setTitle(title) {
   document.title = title;
 }
+
+export function getOrigin() {
+  return globalThis.location.origin;
+}
