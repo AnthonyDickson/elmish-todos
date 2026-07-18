@@ -10,6 +10,7 @@ gleam_fetch = "~> 1.4"
 gleam_javascript = "~> 0.12"
 lustre = "~> 5.7"
 youid = "~> 1.6"
+gleam_time = ">= 1.8.0 and < 2.0.0"
 
 [dev_dependencies]
 gleeunit = "~> 1.0"
