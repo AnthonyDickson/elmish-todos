@@ -27,37 +27,30 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   let #(todo_model, todo_effect) = todo_page.init()
   let model = Model(todo_page: todo_model)
 
-  let effects = effect.batch([
-    effect.map(todo_effect, TodoPageMsg),
-    effect.navigate(UrlChanged),
-  ])
+  let effects =
+    effect.batch([
+      effect.map(todo_effect, TodoPageMsg),
+      effect.navigate(UrlChanged),
+    ])
 
   #(model, effects)
 }
 
-pub fn update(
-  model: Model,
-  msg: Msg,
-) -> #(Model, effect.Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
     UrlChanged(path) -> {
       let visibility = path_to_visibility(path)
       let #(todo_model, todo_effect) =
-        todo_page.update(model.todo_page, todo_page.UserChangedVisibility(
-          visibility,
-        ))
-      #(
-        Model(todo_page: todo_model),
-        effect.map(todo_effect, TodoPageMsg),
-      )
+        todo_page.update(
+          model.todo_page,
+          todo_page.UserChangedVisibility(visibility),
+        )
+      #(Model(todo_page: todo_model), effect.map(todo_effect, TodoPageMsg))
     }
     TodoPageMsg(inner_msg) -> {
       let #(inner_model, inner_effect) =
         todo_page.update(model.todo_page, inner_msg)
-      #(
-        Model(todo_page: inner_model),
-        effect.map(inner_effect, TodoPageMsg),
-      )
+      #(Model(todo_page: inner_model), effect.map(inner_effect, TodoPageMsg))
     }
   }
 }
@@ -72,23 +65,26 @@ fn update_with_effect(
   msg: Msg,
 ) -> #(Model, lustre_effect.Effect(Msg)) {
   let #(new_model, custom_effect) = update(model, msg)
-  #(new_model, lustre_effect.from(fn(dispatch) {
-    effect.run(custom_effect, dispatch)
-  }))
+  #(
+    new_model,
+    lustre_effect.from(fn(dispatch) { effect.run(custom_effect, dispatch) }),
+  )
 }
 
 pub fn main() {
   let #(init_model, init_effect) = init(Nil)
 
-  let app = lustre.application(
-    init: fn(_) {
-      #(init_model, lustre_effect.from(fn(dispatch) {
-        effect.run(init_effect, dispatch)
-      }))
-    },
-    update: update_with_effect,
-    view: view,
-  )
+  let app =
+    lustre.application(
+      init: fn(_) {
+        #(
+          init_model,
+          lustre_effect.from(fn(dispatch) { effect.run(init_effect, dispatch) }),
+        )
+      },
+      update: update_with_effect,
+      view: view,
+    )
 
   let assert Ok(_) = lustre.start(app, "#app", Nil)
   Nil

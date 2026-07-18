@@ -1,12 +1,17 @@
 import api_error
 import effect
+import gleam/dynamic/decode as dynamic_decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/element.{type Element, none, text}
+import lustre/element/html
+import lustre/event
 import response
 import todo_item
 import youid/uuid
@@ -72,19 +77,25 @@ const local_storage_key = "todomvc-lustre"
 fn rollback(model: Model, action: TodoAction) -> Model {
   case action {
     UpdateCompleted(id, previous_state) ->
-      Model(..model, todos: list.map(model.todos, fn(t) {
-        case t.id == id {
-          True -> todo_item.Todo(..t, completed: previous_state)
-          False -> t
-        }
-      }))
+      Model(
+        ..model,
+        todos: list.map(model.todos, fn(t) {
+          case t.id == id {
+            True -> todo_item.Todo(..t, completed: previous_state)
+            False -> t
+          }
+        }),
+      )
     UpdateTitle(id, previous_title) ->
-      Model(..model, todos: list.map(model.todos, fn(t) {
-        case t.id == id {
-          True -> todo_item.Todo(..t, title: previous_title)
-          False -> t
-        }
-      }))
+      Model(
+        ..model,
+        todos: list.map(model.todos, fn(t) {
+          case t.id == id {
+            True -> todo_item.Todo(..t, title: previous_title)
+            False -> t
+          }
+        }),
+      )
     Create(id) ->
       Model(..model, todos: list.filter(model.todos, fn(t) { t.id != id }))
     Delete(previous_todo) -> {
@@ -192,13 +203,14 @@ fn load_todos_from_store() -> effect.Effect(Msg) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 pub fn init() -> #(Model, effect.Effect(Msg)) {
-  let model = Model(
-    new_todo: "",
-    todos: [],
-    visibility: All,
-    edit_state: None,
-    toasts: [],
-  )
+  let model =
+    Model(
+      new_todo: "",
+      todos: [],
+      visibility: All,
+      edit_state: None,
+      toasts: [],
+    )
 
   #(model, effect.batch([fetch_todos(), load_todos_from_store()]))
 }
@@ -207,11 +219,12 @@ pub fn init() -> #(Model, effect.Effect(Msg)) {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
-    ClientLoadedTodos(todos) ->
-      #(Model(..model, todos:), effect.none())
+    ClientLoadedTodos(todos) -> #(Model(..model, todos:), effect.none())
 
-    ClientFetchedTodos(Ok(todos)) ->
-      #(Model(..model, todos:), save_todos(todos))
+    ClientFetchedTodos(Ok(todos)) -> #(
+      Model(..model, todos:),
+      save_todos(todos),
+    )
 
     ClientFetchedTodos(Error(error)) ->
       case error.status_code {
@@ -236,14 +249,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
         Some(401) -> #(updated_model, effect.Redirect("/login"))
         _ ->
           case create_toast(model, action) {
-            Some(toast) ->
-              #(
-                Model(
-                  ..updated_model,
-                  toasts: list.append(updated_model.toasts, [toast]),
-                ),
-                effect.batch([effect.After(5000, ToastDismissed(toast.id))]),
-              )
+            Some(toast) -> #(
+              Model(
+                ..updated_model,
+                toasts: list.append(updated_model.toasts, [toast]),
+              ),
+              effect.batch([effect.After(5000, ToastDismissed(toast.id))]),
+            )
             None -> #(updated_model, effect.none())
           }
       }
@@ -254,8 +266,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       #(Model(..model, toasts:), effect.none())
     }
 
-    UserChangedNewTodo(text) ->
-      #(Model(..model, new_todo: text), effect.none())
+    UserChangedNewTodo(text) -> #(Model(..model, new_todo: text), effect.none())
 
     UserSubmittedNewTodo -> {
       let title = string.trim(model.new_todo)
@@ -277,21 +288,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
             |> todo_item.todo_to_json
             |> json.to_string
           let create_effect =
-            effect.post(
-              "/api/todos",
-              body,
-              "application/json",
-              fn(result) {
-                case result {
-                  Ok(_) -> NoOp
-                  Error(err) ->
-                    TodoActionFailed(
-                      Create(item.id),
-                      response.http_error_to_api_error(err),
-                    )
-                }
-              },
-            )
+            effect.post("/api/todos", body, "application/json", fn(result) {
+              case result {
+                Ok(_) -> NoOp
+                Error(err) ->
+                  TodoActionFailed(
+                    Create(item.id),
+                    response.http_error_to_api_error(err),
+                  )
+              }
+            })
           #(
             Model(
               ..model,
@@ -307,8 +313,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
     UserToggledCompletedStatus(id) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
         Ok(item) -> {
-          let updated_item =
-            todo_item.Todo(..item, completed: !item.completed)
+          let updated_item = todo_item.Todo(..item, completed: !item.completed)
           let todos =
             list.map(model.todos, fn(t) {
               case t.id == id {
@@ -344,14 +349,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
     UserEnteredEditMode(id) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
-        Ok(item) ->
-          #(
-            Model(
-              ..model,
-              edit_state: Some(EditState(id:, new_title: item.title)),
-            ),
-            effect.none(),
-          )
+        Ok(item) -> #(
+          Model(
+            ..model,
+            edit_state: Some(EditState(id:, new_title: item.title)),
+          ),
+          effect.none(),
+        )
         Error(Nil) -> #(model, effect.none())
       }
 
@@ -361,19 +365,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       #(Model(..model, edit_state:), effect.none())
     }
 
-    UserExitedEditMode ->
-      #(Model(..model, edit_state: None), effect.none())
+    UserExitedEditMode -> #(Model(..model, edit_state: None), effect.none())
 
     UserSubmittedEditedTodo ->
       case model.edit_state {
         Some(EditState(id:, new_title:)) -> {
           let new_title = string.trim(new_title)
           case new_title {
-            "" ->
-              #(
-                Model(..model, edit_state: None),
-                effect.After(0, UserDeletedTodo(id)),
-              )
+            "" -> #(
+              Model(..model, edit_state: None),
+              effect.After(0, UserDeletedTodo(id)),
+            )
             _ ->
               case list.find(model.todos, fn(t) { t.id == id }) {
                 Ok(item) -> {
@@ -405,13 +407,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
                           )
                       }
                     })
-                  #(
-                    Model(..model, edit_state: None, todos:),
-                    patch_effect,
-                  )
+                  #(Model(..model, edit_state: None, todos:), patch_effect)
                 }
-                Error(Nil) ->
-                  #(Model(..model, edit_state: None), effect.none())
+                Error(Nil) -> #(Model(..model, edit_state: None), effect.none())
               }
           }
         }
@@ -449,11 +447,12 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       #(Model(..model, todos: active), effect.batch(delete_effects))
     }
 
-    UserChangedVisibility(visibility) ->
-      #(Model(..model, visibility:), effect.none())
+    UserChangedVisibility(visibility) -> #(
+      Model(..model, visibility:),
+      effect.none(),
+    )
 
-    UserClickedLogout ->
-      #(model, effect.Redirect("/logout"))
+    UserClickedLogout -> #(model, effect.Redirect("/logout"))
 
     NoOp -> #(model, effect.none())
   }
@@ -461,8 +460,253 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
 // ── View ─────────────────────────────────────────────────────────────────────
 
-pub fn view(_model: Model) -> Element(Msg) {
-  todo
+fn view_toast(toast: Toast) -> Element(Msg) {
+  html.div(
+    [
+      attribute.class(
+        "pointer-events-auto bg-gray-50 border border-gray-200 border-l-4 border-l-amber-400/40 shadow-lg p-4 max-w-sm animate-[toast-in_0.3s_ease-out]",
+      ),
+      attribute.role("alert"),
+    ],
+    [
+      html.div([attribute.class("flex justify-between items-start gap-3")], [
+        html.div([], [
+          html.p([attribute.class("text-sm font-medium text-gray-600")], [
+            text(toast.title),
+          ]),
+          html.p([attribute.class("text-sm text-gray-500 mt-1")], [
+            text(toast.body),
+          ]),
+        ]),
+        html.button(
+          [
+            attribute.class(
+              "text-gray-300 hover:text-gray-500 shrink-0 text-lg leading-none cursor-pointer",
+            ),
+            attribute.aria_label("Dismiss"),
+            event.on_click(ToastDismissed(toast.id)),
+          ],
+          [text("x")],
+        ),
+      ]),
+    ],
+  )
+}
+
+fn todo_list_item(
+  edit_state: Option(EditState),
+  item: todo_item.Todo,
+) -> Element(Msg) {
+  let li_classes =
+    "bg-gray-50 py-5 min-w-xl text-2xl border-t-1 border-gray-200 flex items-center group"
+
+  case edit_state {
+    Some(EditState(id:, new_title:)) if id == item.id ->
+      html.li([attribute.class(li_classes)], [
+        html.input([
+          attribute.type_("text"),
+          attribute.autofocus(True),
+          attribute.value(new_title),
+          event.on_input(fn(text) { UserEditedTodo(text) }),
+          event.on_keydown(fn(key) {
+            case key {
+              "Enter" -> UserSubmittedEditedTodo
+              _ -> NoOp
+            }
+          }),
+          event.on_blur(UserExitedEditMode),
+          attribute.placeholder("What needs to be done?"),
+          attribute.class(
+            "text-gray-600 text-2xl bg-gray-50 focus-visible:outline-none px-15 min-w-xl placeholder:text-2xl placeholder:text-gray-300 placeholder:italic",
+          ),
+        ]),
+      ])
+    _ ->
+      html.li(
+        [
+          attribute.class(li_classes),
+          event.on(
+            "dblclick",
+            dynamic_decode.success(UserEnteredEditMode(item.id)),
+          ),
+        ],
+        [
+          html.input([
+            attribute.type_("checkbox"),
+            attribute.class("w-5 mx-5"),
+            attribute.checked(item.completed),
+            event.on_check(fn(_) { UserToggledCompletedStatus(item.id) }),
+          ]),
+          html.p(
+            [
+              attribute.class(case item.completed {
+                True -> "line-through text-gray-300"
+                False -> "text-gray-600"
+              }),
+            ],
+            [text(item.title)],
+          ),
+          html.button(
+            [
+              attribute.class(
+                "ml-auto mx-5 w-5 text-red-400/0 group-hover:text-red-400",
+              ),
+              event.on_click(UserDeletedTodo(item.id)),
+            ],
+            [text("x")],
+          ),
+        ],
+      )
+  }
+}
+
+fn visibility_classes(
+  visibility: Visibility,
+  model_visibility: Visibility,
+) -> String {
+  let base = "p-1 rounded-sm border-1"
+  case visibility == model_visibility {
+    True -> "border-rose-300/40 " <> base
+    False -> "border-rose-300/0 hover:border-rose-300/20 " <> base
+  }
+}
+
+pub fn view(model: Model) -> Element(Msg) {
+  let #(active_count, completed_count) =
+    list.fold(model.todos, #(0, 0), fn(acc, t) {
+      let #(active, completed) = acc
+      case t.completed {
+        True -> #(active, completed + 1)
+        False -> #(active + 1, completed)
+      }
+    })
+
+  let todo_count = active_count + completed_count
+
+  let filtered_todos = case model.visibility {
+    All -> model.todos
+    Active -> list.filter(model.todos, fn(t) { !t.completed })
+    Completed -> list.filter(model.todos, fn(t) { t.completed })
+  }
+
+  html.div([attribute.class("bg-gray-100 h-dvh flex h-screen justify-center")], [
+    case model.toasts {
+      [] -> none()
+      toasts ->
+        html.div(
+          [
+            attribute.class(
+              "fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none",
+            ),
+          ],
+          list.map(toasts, view_toast),
+        )
+    },
+    html.main([], [
+      html.header([], [
+        html.h1(
+          [
+            attribute.class("text-8xl text-rose-300/30 text-center m-5"),
+          ],
+          [text("todos")],
+        ),
+        html.input([
+          attribute.type_("text"),
+          attribute.autofocus(True),
+          attribute.value(model.new_todo),
+          attribute.placeholder("What needs to be done?"),
+          attribute.class(
+            "text-gray-600 text-2xl bg-gray-50 drop-shadow-sm focus-visible:outline-none py-5 px-15 min-w-xl placeholder:text-2xl placeholder:text-gray-300 placeholder:italic",
+          ),
+          event.on_input(fn(text) { UserChangedNewTodo(text) }),
+          event.on_keydown(fn(key) {
+            case key {
+              "Enter" -> UserSubmittedNewTodo
+              _ -> NoOp
+            }
+          }),
+        ]),
+      ]),
+      html.ol(
+        [attribute.class("drop-shadow-sm")],
+        list.map(filtered_todos, fn(t) { todo_list_item(model.edit_state, t) }),
+      ),
+      case todo_count > 0 {
+        True ->
+          html.footer(
+            [
+              attribute.class(
+                "text-gray-500 text-sm bg-gray-50 drop-shadow-sm py-2 px-5 min-w-lg border-t-1 border-gray-200 flex justify-between",
+              ),
+            ],
+            [
+              html.p([attribute.class("pt-1")], [
+                html.strong([], [text(int.to_string(active_count))]),
+                text(case active_count {
+                  1 -> " item left"
+                  _ -> " items left"
+                }),
+              ]),
+              html.div([attribute.class("flex gap-2")], [
+                html.a(
+                  [
+                    attribute.href("/"),
+                    attribute.class(visibility_classes(All, model.visibility)),
+                  ],
+                  [text("All")],
+                ),
+                html.a(
+                  [
+                    attribute.href("/active"),
+                    attribute.class(visibility_classes(Active, model.visibility)),
+                  ],
+                  [text("Active")],
+                ),
+                html.a(
+                  [
+                    attribute.href("/completed"),
+                    attribute.class(visibility_classes(
+                      Completed,
+                      model.visibility,
+                    )),
+                  ],
+                  [text("Completed")],
+                ),
+              ]),
+              html.button(
+                [
+                  attribute.class(
+                    "hover:underline"
+                    <> {
+                      case completed_count {
+                        0 -> " invisible"
+                        _ -> ""
+                      }
+                    },
+                  ),
+                  event.on_click(UserDeletedCompletedTodos),
+                ],
+                [
+                  text(
+                    "Clear completed (" <> int.to_string(completed_count) <> ")",
+                  ),
+                ],
+              ),
+            ],
+          )
+        False -> none()
+      },
+      html.footer([attribute.class("flex justify-end py-2 px-5 min-w-lg")], [
+        html.button(
+          [
+            attribute.class("text-sm text-gray-400 hover:text-gray-600"),
+            event.on_click(UserClickedLogout),
+          ],
+          [text("Logout")],
+        ),
+      ]),
+    ]),
+  ])
 }
 
 // ── Update with storage ──────────────────────────────────────────────────────
