@@ -1,105 +1,111 @@
 # Client Architecture
 
-## Component-level vs. top-level Elmish
+The client is a Gleam/Lustre SPA built with nested MVU (Model-View-Update).
+All I/O is managed through a custom `Effect` type with a single interpreter,
+keeping update functions pure and testable.
 
-`App.fs` uses a single `React.useElmish` component that owns all state:
+## Nested MVU
 
-```fsharp
-type Model = { TodoPage : TodoPage.Model }
-type Msg = TodoPageMsg of TodoPage.Msg
+The app uses a two-layer MVU structure: `app.gleam` (shell) delegates to
+`todo_page.gleam` (feature page).
+
+```gleam
+// app.gleam — thin shell
+pub type Model {
+  Model(todo_page: todo_page.Model)
+}
+
+pub type Msg {
+  UrlChanged(path: String)
+  TodoPageMsg(todo_page.Msg)
+}
+
+pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
+  case msg {
+    TodoPageMsg(inner_msg) -> {
+      let #(inner_model, inner_effect) =
+        todo_page.update(model.todo_page, inner_msg)
+      #(
+        Model(..model, todo_page: inner_model),
+        effect.map(inner_effect, TodoPageMsg),
+      )
+    }
+    // ...
+  }
+}
 ```
 
-This requires wrapping child models and messages in the parent's types, and
-forwarding via `Cmd.map` in `update`. Each new feature adds a variant to `Msg`,
-a field to `Model`, and a branch in `update`. This scales linearly.
+Each page gets its own `Msg` type, `Model`, and `update` function. The parent
+maps child effects through `effect.map` to wrap child messages in the parent's
+variant. This scales to any number of pages without a growing flat union.
 
-More importantly, a single top-level Elmish component re-executes the entire
-`view` function on every `dispatch`. The VDOM prevents unnecessary DOM
-mutations, but the `ReactElement` tree is rebuilt in full each time. There are
-no component boundaries for React to short-circuit at. This is negligible at
-small scale but material when unrelated features (e.g. a chart and a search
-bar) share a parent — every keystroke in the search bar triggers a full tree
-rebuild.
+## Effect System
 
-Splitting features into separate `React.useElmish` components solves both
-problems: no message/model wrapping, and React can skip both the F# view
-computation and the VDOM diff for subtrees whose props haven't changed.
+`update` returns pure data (`#(Model, Effect(Msg))`) — never performs I/O.
+A single `effect.run` function interprets effects into real browser calls:
 
-### Composition patterns
+| Effect               | Side effect                              |
+| -------------------- | ---------------------------------------- |
+| `HttpRequest`        | `gleam_fetch` → typed callback           |
+| `LoadFromStore`      | `window.localStorage.getItem`            |
+| `SaveToStore`        | `window.localStorage.setItem`            |
+| `Redirect`           | `window.location.assign`                 |
+| `After(delay, msg)`  | Dispatch `msg` after `delay` ms          |
+| `Navigate`           | Click/popstate interception + pushState  |
+| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`     |
+| `Batch([...])`       | Run multiple effects                     |
+| `None`               | No-op                                    |
 
-**Parent → child (props + callbacks)**
+### Bridging into Lustre
 
-```fsharp
-[<ReactComponent>]
-let SearchBar (onSearch: string -> unit) =
-    let state, dispatch = React.useElmish(SearchBar.init, SearchBar.update, [||])
-    Html.div [
-        Html.input [
-            prop.onChange (fun (v: string) -> dispatch (SearchBar.SetQuery v))
-        ]
-        Html.button [
-            prop.onClick (fun _ ->
-                dispatch SearchBar.Search
-                onSearch state.Query
-            )
-        ]
-    ]
+The shell converts the inspectable `Effect` into Lustre's opaque effect type:
+
+```gleam
+fn update_with_effect(model, msg) -> #(Model, lustre_effect.Effect(Msg)) {
+  let #(new_model, effect) = update(model, msg)
+  #(new_model, lustre_effect.from(fn(dispatch) {
+    effect.run(effect, dispatch)
+  }))
+}
 ```
 
-The parent passes a callback. No knowledge of `SearchBar.Msg` or
-`SearchBar.Model`.
+### Per-method HTTP constructors
 
-**Siblings (lifted state)**
+`effect.gleam` provides thin per-method helpers that delegate to
+`http_effect.send`. Callers pre-serialise bodies as `String`:
 
-```fsharp
-[<ReactComponent>]
-let App () =
-    let filter, setFilter = React.useState ""
-    Html.div [
-        SearchBar(onSearch = setFilter)
-        TodoList(filter = filter)
-    ]
+```gleam
+effect.get("/api/todos", callback)
+effect.post(url, body, "application/json", callback)
+effect.patch(url, body, "application/json", callback)
+effect.delete(url, callback)
 ```
 
-Use React's `useState` for simple shared values between sibling Elmish
-components.
+## Client-Side Routing
 
-**Global state (React Context)**
+Routing uses custom navigation effects via browser APIs — no router library:
 
-```fsharp
-let authContext = React.createContext<AuthState>("auth")
+- `effect.navigate(UrlChanged)` — intercepts clicks on internal links,
+  listens for `popstate`, and dispatches the initial URL on page load
+- `effect.push_url("/active")` / `effect.replace_url("/completed")` — programmatic navigation
+- URL path segments determine visibility: `[]` → All, `["active"]` → Active,
+  `["completed"]` → Completed
 
-[<ReactComponent>]
-let App () =
-    let auth, dispatch = React.useElmish(Auth.init, Auth.update, [||])
-    React.contextProvider(authContext, auth, [
-        Router()
-        Header()
-        MainContent()
-    ])
+## When to add a page
 
-[<ReactComponent>]
-let MainContent () =
-    let auth = React.useContext(authContext)
-    if auth.IsLoggedIn then TodoApp() else LoginPrompt()
-```
+| Condition                                     | Pattern                    |
+| --------------------------------------------- | -------------------------- |
+| Single feature, one concern                   | Add to existing page       |
+| New feature with independent state            | New `page.gleam` module    |
+| Feature shares state with existing page       | Extend existing page       |
+| Global state (auth, theme, user prefs)        | Extend app shell model     |
 
-Only the consuming component re-renders on context change.
-
-## When to split
-
-| Condition                                            | Pattern                         |
-| ---------------------------------------------------- | ------------------------------- |
-| Single page, one concern                             | Top-level `useElmish` (current) |
-| Multiple features with independent state             | Multiple `useElmish` components |
-| Siblings sharing a filter/sort value                 | Lifted state with `useState`    |
-| Auth, theme, user prefs (global, infrequent updates) | React Context                   |
-
-Rule of thumb: add a new `useElmish` component when a feature's state has no
-reason to live in the parent's model.
+Rule of thumb: add a new page module when a feature's state has no reason to
+live in another page's model, and its messages would bloat an existing `Msg`
+type.
 
 ## References
 
-- [Fable blog: Elmish 4 + React.useElmish](https://fable.io/blog/2022/2022-10-13-use-elmish.html)
-- [Feliz UseElmish docs](https://fable-hub.github.io/Feliz/ecosystem/Hooks/Feliz.UseElmish)
-- [Optimising F# and React integration with Elmish Store](https://dev.to/lkrzywizna/optimizing-f-and-react-integration-with-elmish-store-a-guide-to-efficient-state-management-316m)
+- [Lustre docs](https://hexdocs.pm/lustre/)
+- [Gleam JavaScript target](https://gleam.run/running/compiling-to-javascript/)
+- [vite-gleam plugin](https://github.com/nicdum/vite-gleam)
