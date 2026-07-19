@@ -64,6 +64,8 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAut
                         )
                 )
 
+            doc.Security <- ResizeArray [ Auth.oauthRequirement doc ]
+
             Task.CompletedTask)
         |> ignore)
     |> ignore
@@ -182,6 +184,7 @@ module private Health =
                     configureOperation =
                         fun op _ _ ->
                             op.Summary <- "Check whether the API is healthy"
+                            op.Security <- ResizeArray ()
                             Task.CompletedTask
                 )
             )

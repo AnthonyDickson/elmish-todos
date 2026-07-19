@@ -24,9 +24,9 @@ module Auth =
     let private oidcScheme = OpenIdConnectDefaults.AuthenticationScheme
     let private bearerScheme = "bearer"
 
-    let oauthRequirement () : OpenApiSecurityRequirement =
+    let oauthRequirement (doc : OpenApiDocument) : OpenApiSecurityRequirement =
         let schemeRef =
-            OpenApiSecuritySchemeReference ("scalarOAuth2", null, "SecuritySchemes")
+            OpenApiSecuritySchemeReference ("scalarOAuth2", doc)
 
         let requirement = OpenApiSecurityRequirement ()
         requirement[schemeRef] <- ResizeArray [ "openid"; "profile"; "email" ]
