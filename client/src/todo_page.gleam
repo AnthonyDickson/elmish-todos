@@ -2,6 +2,7 @@ import api_error
 import effect
 import gleam/dynamic/decode as dynamic_decode
 import gleam/int
+import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -229,6 +230,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       case error.status_code {
         Some(401) -> #(model, effect.Redirect("/login"))
         _ -> {
+          io.println_error(api_error.describe(error))
+
           let toast =
             Toast(
               id: uuid.v7(),
@@ -246,7 +249,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       let updated_model = rollback(model, action)
       case error.status_code {
         Some(401) -> #(updated_model, effect.Redirect("/login"))
-        _ ->
+        _ -> {
+          io.println_error(api_error.describe(error))
+
           case create_toast(model, action) {
             Some(toast) -> #(
               Model(
@@ -257,6 +262,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
             )
             None -> #(updated_model, effect.none())
           }
+        }
       }
     }
 
