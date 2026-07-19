@@ -240,7 +240,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
             )
           #(
             Model(..model, toasts: list.append(model.toasts, [toast])),
-            effect.batch([effect.After(5000, ToastDismissed(toast.id))]),
+            effect.After(5000, ToastDismissed(toast.id)),
           )
         }
       }
@@ -258,7 +258,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
                 ..updated_model,
                 toasts: list.append(updated_model.toasts, [toast]),
               ),
-              effect.batch([effect.After(5000, ToastDismissed(toast.id))]),
+              effect.After(5000, ToastDismissed(toast.id)),
             )
             None -> #(updated_model, effect.none())
           }
