@@ -1,9 +1,26 @@
 namespace ElmishTodos.Server.Todos
 
-module Store =
-    open System
+open System
 
-    open ElmishTodos.Server.Todo
+/// <summary>A todo item stored in the in-memory todo list.</summary>
+type Todo = {
+    /// <summary>Unique identifier for the todo item.</summary>
+    Id : Guid
+
+    /// <summary>The title or description of the todo.</summary>
+    Title : string
+
+    /// <summary>Whether the todo has been completed.</summary>
+    Completed : bool
+
+    /// <summary>UTC timestamp when the todo was created.</summary>
+    CreatedAt : DateTime
+}
+
+/// <summary>Payload for updating an existing todo item.</summary>
+type UpdateTodoRequest = { Title : string; Completed : bool }
+
+module Store =
     open ElmishTodos.Server.Db
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
@@ -103,7 +120,6 @@ module Store =
         }
 
 module Api =
-    open System
     open System.Threading.Tasks
 
     open Oxpecker
@@ -112,7 +128,6 @@ module Api =
     open ElmishTodos.Server.Auth
     open ElmishTodos.Server.Json
     open ElmishTodos.Server.ApiError
-    open ElmishTodos.Server.Todo
     open Store
 
     module private Helpers =
@@ -140,7 +155,7 @@ module Api =
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
-                        ResponseBody typeof<Todo array>
+                        ResponseBody typeof<Todo list>
                         ResponseBody (typeof<ApiError>, statusCode = 401)
                     |],
                     configureOperation =
