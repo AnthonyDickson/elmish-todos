@@ -7,7 +7,7 @@ module Extra =
     let epoch =
         let encoder (dt : DateTime) =
             let dto = DateTimeOffset dt
-            Encode.int64 (dto.ToUnixTimeSeconds ())
+            dto.ToUnixTimeSeconds () |> float |> Encode.float
 
         let decoder (path : string) (value : JsonValue) =
             Decode.int64 path value
