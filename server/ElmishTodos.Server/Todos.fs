@@ -20,14 +20,14 @@ module Store =
         Id = row.Id
         Title = row.Title
         Completed = row.Completed
-        CreatedAt = row.CreatedAt
+        CreatedAt = DateTimeOffset.FromUnixTimeSeconds(row.CreatedAt).UtcDateTime
     }
 
     let private toRow (todo : Todo) : main.Todos = {
         Id = todo.Id
         Title = todo.Title
         Completed = todo.Completed
-        CreatedAt = todo.CreatedAt
+        CreatedAt = DateTimeOffset(todo.CreatedAt).ToUnixTimeSeconds ()
     }
 
     // ── Queries ────────────────────────────────────────────────────────────

@@ -1,17 +1,30 @@
 namespace ElmishTodos.Server.Coders
 
+open System
 open Thoth.Json.Net
+
+module Extra =
+    let epoch =
+        let encoder (dt : DateTime) =
+            let dto = DateTimeOffset dt
+            Encode.int64 (dto.ToUnixTimeSeconds ())
+
+        let decoder (path : string) (value : JsonValue) =
+            Decode.int64 path value
+            |> Result.map (fun s -> DateTimeOffset.FromUnixTimeSeconds(s).UtcDateTime)
+
+        Extra.empty |> Extra.withCustom encoder decoder
 
 module Decode =
     let inline cachedDecoder<'T> : Decoder<'T> =
-        Decode.Auto.generateDecoderCached<'T> (caseStrategy = CamelCase, extra = Extra.empty)
+        Decode.Auto.generateDecoderCached<'T> (caseStrategy = CamelCase, extra = Extra.epoch)
 
     let inline fromString<'T> (json : string) : Result<'T, string> =
         Decode.fromString cachedDecoder<'T> json
 
 module Encode =
     let inline cachedEncoder<'T> : Encoder<'T> =
-        Encode.Auto.generateEncoderCached<'T> (caseStrategy = CamelCase, extra = Extra.empty, skipNullField = false)
+        Encode.Auto.generateEncoderCached<'T> (caseStrategy = CamelCase, extra = Extra.epoch, skipNullField = false)
 
     let inline toString<'T> (value : 'T) : string =
         let jsonValue = cachedEncoder<'T> value

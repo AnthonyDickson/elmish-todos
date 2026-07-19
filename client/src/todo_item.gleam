@@ -1,16 +1,17 @@
 import gleam/dynamic/decode
 import gleam/json
-import youid/uuid
+import gleam/time/timestamp.{type Timestamp}
+import youid/uuid.{type Uuid}
 
 pub type Todo {
-  Todo(id: uuid.Uuid, title: String, completed: Bool, created_at: String)
+  Todo(id: Uuid, title: String, completed: Bool, created_at: Timestamp)
 }
 
 pub type UpdateTodoRequest {
   UpdateTodoRequest(title: String, completed: Bool)
 }
 
-fn uuid_decoder() -> decode.Decoder(uuid.Uuid) {
+fn uuid_decoder() -> decode.Decoder(Uuid) {
   decode.string
   |> decode.then(fn(s) {
     case uuid.from_string(s) {
@@ -20,11 +21,16 @@ fn uuid_decoder() -> decode.Decoder(uuid.Uuid) {
   })
 }
 
+fn timestamp_decoder() -> decode.Decoder(Timestamp) {
+  decode.int
+  |> decode.then(fn(s) { decode.success(timestamp.from_unix_seconds(s)) })
+}
+
 pub fn todo_decoder() -> decode.Decoder(Todo) {
   use id <- decode.field("id", uuid_decoder())
   use title <- decode.field("title", decode.string)
   use completed <- decode.field("completed", decode.bool)
-  use created_at <- decode.field("createdAt", decode.string)
+  use created_at <- decode.field("createdAt", timestamp_decoder())
   decode.success(Todo(id:, title:, completed:, created_at:))
 }
 
@@ -33,11 +39,12 @@ pub fn todos_decoder() -> decode.Decoder(List(Todo)) {
 }
 
 pub fn todo_to_json(item: Todo) -> json.Json {
+  let #(seconds, _) = timestamp.to_unix_seconds_and_nanoseconds(item.created_at)
   json.object([
     #("id", json.string(uuid.to_string(item.id))),
     #("title", json.string(item.title)),
     #("completed", json.bool(item.completed)),
-    #("createdAt", json.string(item.created_at)),
+    #("createdAt", json.int(seconds)),
   ])
 }
 

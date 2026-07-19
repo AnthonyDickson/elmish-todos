@@ -210,7 +210,7 @@ let main (args : string array) : int =
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
 
-    app.MapGet("/health", Func<_>(fun () -> Task.CompletedTask)) |> ignore
+    app.MapGet ("/health", Func<_> (fun () -> Task.CompletedTask)) |> ignore
 
     // Run the vite dev server for accessing the SPA bundle.
     if not (app.Environment.IsDevelopment ()) then

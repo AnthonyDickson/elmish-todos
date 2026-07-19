@@ -6,5 +6,5 @@ CREATE TABLE [Todos] (
     Id        GUID NOT NULL PRIMARY KEY,
     Title     TEXT NOT NULL,
     Completed BOOLEAN NOT NULL DEFAULT 0,
-    CreatedAt DATETIME NOT NULL
+    CreatedAt INTEGER NOT NULL
 );

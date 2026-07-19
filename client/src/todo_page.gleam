@@ -6,7 +6,6 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import gleam/time/calendar
 import gleam/time/timestamp
 import lustre/attribute
 import lustre/element.{type Element, none, text}
@@ -273,9 +272,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       case title {
         "" -> #(Model(..model, new_todo: ""), effect.none())
         _ -> {
-          let now =
-            timestamp.system_time()
-            |> timestamp.to_rfc3339(calendar.utc_offset)
+          let now = timestamp.system_time()
           let item =
             todo_item.Todo(
               id: uuid.v7(),

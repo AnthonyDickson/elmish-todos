@@ -5,63 +5,68 @@ open SqlHydra
 open SqlHydra.Query
 
 module Version =
-    let cli = System.Version(4, 0, 1)
+    let cli = System.Version (4, 0, 1)
     let ns = "ElmishTodos.Server.Db"
     SqlHydra.Query.VersionCheck.assertIsCompatible cli ns
 
 module main =
 
     [<CLIMutable>]
-    type SchemaVersions =
-        { SchemaVersionID: int64
-          ScriptName: string
-          Applied: System.DateTime }
+    type SchemaVersions = {
+        SchemaVersionID : int64
+        ScriptName : string
+        Applied : System.DateTime
+    }
 
     let SchemaVersions = table<SchemaVersions>
 
     [<CLIMutable>]
-    type Todos =
-        { Id: System.Guid
-          Title: string
-          Completed: bool
-          CreatedAt: System.DateTime }
+    type Todos = {
+        Id : System.Guid
+        Title : string
+        Completed : bool
+        CreatedAt : int64
+    }
 
     let Todos = table<Todos>
 
 
-type QueryContextFactory =
-    { OpenContext: unit -> QueryContext
-      OpenContextAsync: unit -> System.Threading.Tasks.Task<QueryContext> }
+type QueryContextFactory = {
+    OpenContext : unit -> QueryContext
+    OpenContextAsync : unit -> System.Threading.Tasks.Task<QueryContext>
+} with
     // This provider holds no factory-level resources; each connection is owned and disposed by its QueryContext.
-    member _.Dispose() = ()
+    member _.Dispose () = ()
 
     interface System.IDisposable with
-        member this.Dispose() = this.Dispose()
+        member this.Dispose () = this.Dispose ()
 
     interface IQueryContextFactory with
-        member this.OpenContextAsync() = this.OpenContextAsync()
+        member this.OpenContextAsync () = this.OpenContextAsync ()
 
-    static member Create(connectionString: string, ?sqlLogger) =
-        let emitter = SqlHydra.Query.SqliteEmitter()
+    static member Create (connectionString : string, ?sqlLogger) =
+        let emitter = SqlHydra.Query.SqliteEmitter ()
 
         let createConn () : System.Data.Common.DbConnection =
-            new Microsoft.Data.Sqlite.SqliteConnection(connectionString)
+            new Microsoft.Data.Sqlite.SqliteConnection (connectionString)
 
         let openContext () =
             let conn = createConn ()
-            conn.Open()
-            let ctx = new QueryContext(conn, emitter)
+            conn.Open ()
+            let ctx = new QueryContext (conn, emitter)
             sqlLogger |> Option.iter (fun logger -> ctx.Logger <- logger)
             ctx
 
         let openContextAsync () =
             task {
                 let conn = createConn ()
-                do! conn.OpenAsync()
-                let ctx = new QueryContext(conn, emitter)
+                do! conn.OpenAsync ()
+                let ctx = new QueryContext (conn, emitter)
                 sqlLogger |> Option.iter (fun logger -> ctx.Logger <- logger)
                 return ctx
             }
 
-        { OpenContext = openContext
-          OpenContextAsync = openContextAsync }
+        {
+            OpenContext = openContext
+            OpenContextAsync = openContextAsync
+        }

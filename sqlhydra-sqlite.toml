@@ -1,5 +1,5 @@
 [general]
-connection = "Data Source=src/ElmishTodos.Server/todos.db"
+connection = "Data Source=server/ElmishTodos.Server/todos.db"
 output = "Db.fs"
 namespace = "ElmishTodos.Server.Db"
 cli_mutable = true
