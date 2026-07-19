@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/dynamic/decode as dynamic_decode
 import gleam/int
 import gleam/io
@@ -12,6 +13,7 @@ import lustre/element/html
 import lustre/event
 import todos_mvc/api_error
 import todos_mvc/effect
+import todos_mvc/guard
 import todos_mvc/response
 import todos_mvc/todo_item
 import youid/uuid
@@ -275,80 +277,76 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
     UserSubmittedNewTodo -> {
       let title = string.trim(model.new_todo)
-      case title {
-        "" -> #(Model(..model, new_todo: ""), effect.none())
-        _ -> {
-          let now = timestamp.system_time()
-          let item =
-            todo_item.Todo(
-              id: uuid.v7(),
-              title:,
-              completed: False,
-              created_at: now,
-            )
-          let body =
-            item
-            |> todo_item.todo_to_json
-            |> json.to_string
-          let create_effect =
-            effect.post("/api/todos", body, "application/json", fn(result) {
-              case result {
-                Ok(_) -> NoOp
-                Error(err) ->
-                  TodoActionFailed(
-                    Create(item.id),
-                    response.http_error_to_api_error(err),
-                  )
-              }
-            })
-          #(
-            Model(
-              ..model,
-              new_todo: "",
-              todos: list.append(model.todos, [item]),
-            ),
-            create_effect,
-          )
-        }
-      }
+
+      use <- bool.lazy_guard(when: string.is_empty(title), return: fn() {
+        #(Model(..model, new_todo: ""), effect.none())
+      })
+
+      let now = timestamp.system_time()
+      let item =
+        todo_item.Todo(id: uuid.v7(), title:, completed: False, created_at: now)
+      let body =
+        item
+        |> todo_item.todo_to_json
+        |> json.to_string
+
+      let create_effect =
+        effect.post("/api/todos", body, "application/json", fn(result) {
+          case result {
+            Ok(_) -> NoOp
+            Error(err) ->
+              TodoActionFailed(
+                Create(item.id),
+                response.http_error_to_api_error(err),
+              )
+          }
+        })
+
+      #(
+        Model(..model, new_todo: "", todos: list.append(model.todos, [item])),
+        create_effect,
+      )
     }
 
-    UserToggledCompletedStatus(id) ->
-      case list.find(model.todos, fn(t) { t.id == id }) {
-        Ok(item) -> {
-          let updated_item = todo_item.Todo(..item, completed: !item.completed)
-          let todos =
-            list.map(model.todos, fn(t) {
-              case t.id == id {
-                True -> updated_item
-                False -> t
-              }
-            })
-          let request =
-            todo_item.UpdateTodoRequest(
-              title: updated_item.title,
-              completed: updated_item.completed,
-            )
-          let body =
-            request
-            |> todo_item.update_todo_request_to_json
-            |> json.to_string
-          let url = "/api/todos/" <> uuid.to_string(id)
-          let patch_effect =
-            effect.patch(url, body, "application/json", fn(result) {
-              case result {
-                Ok(_) -> NoOp
-                Error(err) ->
-                  TodoActionFailed(
-                    UpdateCompleted(updated_item.id, item.completed),
-                    response.http_error_to_api_error(err),
-                  )
-              }
-            })
-          #(Model(..model, todos:), patch_effect)
-        }
-        Error(Nil) -> #(model, effect.none())
-      }
+    UserToggledCompletedStatus(id) -> {
+      use item <- guard.ok(
+        in: list.find(model.todos, fn(t) { t.id == id }),
+        else_return: fn(_) {
+          #(Model(..model, edit_state: None), effect.none())
+        },
+      )
+
+      let updated_item = todo_item.Todo(..item, completed: !item.completed)
+      let todos =
+        list.map(model.todos, fn(t) {
+          case t.id == id {
+            True -> updated_item
+            False -> t
+          }
+        })
+      let request =
+        todo_item.UpdateTodoRequest(
+          title: updated_item.title,
+          completed: updated_item.completed,
+        )
+      let body =
+        request
+        |> todo_item.update_todo_request_to_json
+        |> json.to_string
+      let url = "/api/todos/" <> uuid.to_string(id)
+      let patch_effect =
+        effect.patch(url, body, "application/json", fn(result) {
+          case result {
+            Ok(_) -> NoOp
+            Error(err) ->
+              TodoActionFailed(
+                UpdateCompleted(updated_item.id, item.completed),
+                response.http_error_to_api_error(err),
+              )
+          }
+        })
+      #(Model(..model, todos:), patch_effect)
+    }
 
     UserEnteredEditMode(id) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
@@ -370,75 +368,77 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
     UserExitedEditMode -> #(Model(..model, edit_state: None), effect.none())
 
-    UserSubmittedEditedTodo ->
-      case model.edit_state {
-        Some(EditState(id:, new_title:)) -> {
-          let new_title = string.trim(new_title)
-          case new_title {
-            "" -> #(
-              Model(..model, edit_state: None),
-              effect.After(0, UserDeletedTodo(id)),
-            )
-            _ ->
-              case list.find(model.todos, fn(t) { t.id == id }) {
-                Ok(item) -> {
-                  let todos =
-                    list.map(model.todos, fn(t) {
-                      case t.id == id {
-                        True -> todo_item.Todo(..t, title: new_title)
-                        False -> t
-                      }
-                    })
-                  let request =
-                    todo_item.UpdateTodoRequest(
-                      title: new_title,
-                      completed: item.completed,
-                    )
-                  let body =
-                    request
-                    |> todo_item.update_todo_request_to_json
-                    |> json.to_string
-                  let url = "/api/todos/" <> uuid.to_string(id)
-                  let patch_effect =
-                    effect.patch(url, body, "application/json", fn(result) {
-                      case result {
-                        Ok(_) -> NoOp
-                        Error(err) ->
-                          TodoActionFailed(
-                            UpdateTitle(item.id, item.title),
-                            response.http_error_to_api_error(err),
-                          )
-                      }
-                    })
-                  #(Model(..model, edit_state: None, todos:), patch_effect)
-                }
-                Error(Nil) -> #(Model(..model, edit_state: None), effect.none())
-              }
-          }
-        }
-        None -> #(Model(..model, edit_state: None), effect.none())
-      }
+    UserSubmittedEditedTodo -> {
+      use EditState(id:, new_title:) <- guard.some(
+        in: model.edit_state,
+        else_return: fn() { #(Model(..model, edit_state: None), effect.none()) },
+      )
+      let new_title = string.trim(new_title)
 
-    UserDeletedTodo(id) ->
-      case list.find(model.todos, fn(t) { t.id == id }) {
-        Ok(item_to_remove) -> {
-          let todos = list.filter(model.todos, fn(t) { t.id != id })
-          let url = "/api/todos/" <> uuid.to_string(id)
-          let delete_effect =
-            effect.delete(url, fn(result) {
-              case result {
-                Ok(_) -> NoOp
-                Error(err) ->
-                  TodoActionFailed(
-                    Delete(item_to_remove),
-                    response.http_error_to_api_error(err),
-                  )
-              }
-            })
-          #(Model(..model, todos:), delete_effect)
-        }
-        Error(Nil) -> #(model, effect.none())
-      }
+      use <- bool.lazy_guard(when: string.is_empty(new_title), return: fn() {
+        #(
+          Model(..model, edit_state: None),
+          effect.After(0, UserDeletedTodo(id)),
+        )
+      })
+
+      use item <- guard.ok(
+        in: list.find(model.todos, fn(t) { t.id == id }),
+        else_return: fn(_) {
+          #(Model(..model, edit_state: None), effect.none())
+        },
+      )
+
+      let todos =
+        list.map(model.todos, fn(t) {
+          case t.id == id {
+            True -> todo_item.Todo(..t, title: new_title)
+            False -> t
+          }
+        })
+      let request =
+        todo_item.UpdateTodoRequest(title: new_title, completed: item.completed)
+      let body =
+        request
+        |> todo_item.update_todo_request_to_json
+        |> json.to_string
+      let url = "/api/todos/" <> uuid.to_string(id)
+      let patch_effect =
+        effect.patch(url, body, "application/json", fn(result) {
+          case result {
+            Ok(_) -> NoOp
+            Error(err) ->
+              TodoActionFailed(
+                UpdateTitle(item.id, item.title),
+                response.http_error_to_api_error(err),
+              )
+          }
+        })
+      #(Model(..model, edit_state: None, todos:), patch_effect)
+    }
+
+    UserDeletedTodo(id) -> {
+      use item_to_remove <- guard.ok(
+        in: list.find(model.todos, fn(t) { t.id == id }),
+        else_return: fn(_) { #(model, effect.none()) },
+      )
+
+      let todos = list.filter(model.todos, fn(t) { t.id != id })
+      let url = "/api/todos/" <> uuid.to_string(id)
+      let delete_effect =
+        effect.delete(url, fn(result) {
+          case result {
+            Ok(_) -> NoOp
+            Error(err) ->
+              TodoActionFailed(
+                Delete(item_to_remove),
+                response.http_error_to_api_error(err),
+              )
+          }
+        })
+
+      #(Model(..model, todos:), delete_effect)
+    }
 
     UserDeletedCompletedTodos -> {
       let completed = list.filter(model.todos, fn(t) { t.completed })
@@ -459,6 +459,24 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
     NoOp -> #(model, effect.none())
   }
+}
+
+// ── Update with storage ──────────────────────────────────────────────────────
+
+pub fn update_with_storage(
+  model: Model,
+  msg: Msg,
+) -> #(Model, effect.Effect(Msg)) {
+  let #(new_model, effects) = update(model, msg)
+  let todos_json =
+    new_model.todos
+    |> list.map(todo_item.todo_to_json)
+    |> json.preprocessed_array
+    |> json.to_string
+  #(
+    new_model,
+    effect.batch([effects, effect.SaveToStore(local_storage_key, todos_json)]),
+  )
 }
 
 // ── View ─────────────────────────────────────────────────────────────────────
@@ -710,22 +728,4 @@ pub fn view(model: Model) -> Element(Msg) {
       ]),
     ]),
   ])
-}
-
-// ── Update with storage ──────────────────────────────────────────────────────
-
-pub fn update_with_storage(
-  model: Model,
-  msg: Msg,
-) -> #(Model, effect.Effect(Msg)) {
-  let #(new_model, effects) = update(model, msg)
-  let todos_json =
-    new_model.todos
-    |> list.map(todo_item.todo_to_json)
-    |> json.preprocessed_array
-    |> json.to_string
-  #(
-    new_model,
-    effect.batch([effects, effect.SaveToStore(local_storage_key, todos_json)]),
-  )
 }
