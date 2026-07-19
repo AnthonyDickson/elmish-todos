@@ -1,6 +1,6 @@
 import gleam/javascript/promise
 import gleam/list
-import http_effect.{
+import todos_mvc/http_effect.{
   type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put,
 }
 

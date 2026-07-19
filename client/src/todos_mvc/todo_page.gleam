@@ -1,5 +1,3 @@
-import api_error
-import effect
 import gleam/dynamic/decode as dynamic_decode
 import gleam/int
 import gleam/io
@@ -12,8 +10,10 @@ import lustre/attribute
 import lustre/element.{type Element, none, text}
 import lustre/element/html
 import lustre/event
-import response
-import todo_item
+import todos_mvc/api_error
+import todos_mvc/effect
+import todos_mvc/response
+import todos_mvc/todo_item
 import youid/uuid
 
 // ── Types ────────────────────────────────────────────────────────────────────
