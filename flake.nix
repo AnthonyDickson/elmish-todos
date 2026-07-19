@@ -26,9 +26,11 @@
               echo "  dotnet $(dotnet --version)"
               echo "  $(gleam --version)"
 
-              # Restore local dotnet tools (FAKE, Femto, etc.)
-              if [ -f dotnet-tools.json ]; then
+              # Restore local dotnet tools (fantomas, fsharplint, sqlhydra, etc.)
+              if [ -f server/dotnet-tools.json ]; then
+                pushd server
                 dotnet tool restore
+                popd
               fi
             '';
 

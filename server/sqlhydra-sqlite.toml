@@ -1,5 +1,5 @@
 [general]
-connection = "Data Source=server/LustreTodos.Server/todos.db"
+connection = "Data Source=src/LustreTodos.Server/todos.db"
 output = "Db.fs"
 namespace = "LustreTodos.Server.Db"
 cli_mutable = true

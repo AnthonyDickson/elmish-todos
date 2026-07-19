@@ -84,7 +84,7 @@ export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 Then start:
 
 ```bash
-dotnet run --project server/LustreTodos.Server
+dotnet run --project server/src/LustreTodos.Server
 ```
 
 ## Cookie Security (Non-Development)

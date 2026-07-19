@@ -1,5 +1,0 @@
-{
-  "ignoreFiles": [
-    "server/LustreTodos.Server/Db.fs"
-  ]
-}

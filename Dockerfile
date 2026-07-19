@@ -14,20 +14,23 @@ RUN curl -fsSL https://github.com/gleam-lang/gleam/releases/download/v1.17.0/gle
 
 WORKDIR /src
 
-COPY ./dotnet-tools.json ./
-RUN dotnet tool restore
+# Restore dotnet tools and packages
+COPY server/dotnet-tools.json server/
+RUN cd server && dotnet tool restore
 
-COPY *.props *.targets ./
-COPY LustreTodos.slnx ./
-COPY src/LustreTodos.Shared/*.fsproj src/LustreTodos.Shared/
-COPY src/LustreTodos.Server/*.fsproj src/LustreTodos.Server/
-RUN dotnet restore LustreTodos.slnx
+COPY server/Directory.Build.props server/Directory.Packages.props server/
+COPY server/LustreTodos.slnx server/
+COPY server/src/LustreTodos.Server/LustreTodos.Server.fsproj server/src/LustreTodos.Server/
+RUN cd server && dotnet restore
 
-COPY src/lustre_todos_client/package*.json src/lustre_todos_client/
-RUN npm ci --prefix src/lustre_todos_client
+# Install client dependencies
+COPY client/package*.json client/
+RUN npm ci --prefix client
 
+# Copy everything and publish
 COPY ./Makefile ./
-COPY ./src ./src
+COPY ./server ./server
+COPY ./client ./client
 ARG RUNTIME=linux-x64
 RUN make publish RUNTIME=${RUNTIME} PUBLISH_DIR=/publish
 

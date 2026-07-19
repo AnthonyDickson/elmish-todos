@@ -10,8 +10,8 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=server/LustreTodos.Server/todos.db"
-let migrationsPath = "server/LustreTodos.Server/migrations"
+let connectionString = "Data Source=src/LustreTodos.Server/todos.db"
+let migrationsPath = "src/LustreTodos.Server/migrations"
 let scriptPrefix = "LustreTodos.Server.migrations."
 
 // DbUp's WithScriptsFromFileSystem uses bare filenames as ScriptName,
