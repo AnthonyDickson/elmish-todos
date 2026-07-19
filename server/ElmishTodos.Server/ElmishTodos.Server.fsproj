@@ -5,11 +5,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>true</StaticWebAssetsEnabled>
     <PublishSingleFile>true</PublishSingleFile>
-    <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
   <ItemGroup>

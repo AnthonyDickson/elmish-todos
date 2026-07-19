@@ -31,7 +31,8 @@ copy-client-dist: client-build
 
 publish: copy-client-dist
 	dotnet publish server/ElmishTodos.Server/ElmishTodos.Server.fsproj \
-		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR)
+		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR) \
+		-p:PublishTrimmed=true -p:TrimMode=partial
 
 # ── Database ──────────────────────────────────────────────────────────────
 
