@@ -1,4 +1,4 @@
-namespace ElmishTodos.Server.Todos
+namespace LustreTodos.Server.Todos
 
 open System
 
@@ -21,7 +21,7 @@ type Todo = {
 type UpdateTodoRequest = { Title : string; Completed : bool }
 
 module Store =
-    open ElmishTodos.Server.Db
+    open LustreTodos.Server.Db
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
 
@@ -125,9 +125,9 @@ module Api =
     open Oxpecker
     open Oxpecker.OpenApi
 
-    open ElmishTodos.Server.Auth
-    open ElmishTodos.Server.Json
-    open ElmishTodos.Server.ApiError
+    open LustreTodos.Server.Auth
+    open LustreTodos.Server.Json
+    open LustreTodos.Server.ApiError
     open Store
 
     module private Helpers =

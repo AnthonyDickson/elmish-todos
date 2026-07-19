@@ -1,4 +1,4 @@
-namespace ElmishTodos.Server.ApiError
+namespace LustreTodos.Server.ApiError
 
 type ApiError = {
     Error : string

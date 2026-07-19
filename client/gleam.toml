@@ -1,4 +1,4 @@
-name = "elmish_todos_client"
+name = "lustre_todos_client"
 version = "1.0.0"
 target = "javascript"
 

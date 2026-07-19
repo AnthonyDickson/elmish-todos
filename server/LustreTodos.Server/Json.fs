@@ -1,9 +1,9 @@
-namespace ElmishTodos.Server.Json
+namespace LustreTodos.Server.Json
 
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
-open ElmishTodos.Server.Coders
+open LustreTodos.Server.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
 module Json =

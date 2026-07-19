@@ -1,4 +1,4 @@
-namespace ElmishTodos.Server.Config
+namespace LustreTodos.Server.Config
 
 open System.ComponentModel.DataAnnotations
 

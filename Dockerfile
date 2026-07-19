@@ -18,13 +18,13 @@ COPY ./dotnet-tools.json ./
 RUN dotnet tool restore
 
 COPY *.props *.targets ./
-COPY ElmishTodos.slnx ./
-COPY src/ElmishTodos.Shared/*.fsproj src/ElmishTodos.Shared/
-COPY src/ElmishTodos.Server/*.fsproj src/ElmishTodos.Server/
-RUN dotnet restore ElmishTodos.slnx
+COPY LustreTodos.slnx ./
+COPY src/LustreTodos.Shared/*.fsproj src/LustreTodos.Shared/
+COPY src/LustreTodos.Server/*.fsproj src/LustreTodos.Server/
+RUN dotnet restore LustreTodos.slnx
 
-COPY src/elmish_todos_client/package*.json src/elmish_todos_client/
-RUN npm ci --prefix src/elmish_todos_client
+COPY src/lustre_todos_client/package*.json src/lustre_todos_client/
+RUN npm ci --prefix src/lustre_todos_client
 
 COPY ./Makefile ./
 COPY ./src ./src
@@ -38,10 +38,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 EXPOSE 5000
 
-COPY --from=build /publish/ElmishTodos.Server /app/
+COPY --from=build /publish/LustreTodos.Server /app/
 COPY --from=build /publish/wwwroot/ /app/wwwroot/
-COPY --from=build /publish/ElmishTodos.Server.staticwebassets.endpoints.json /app/
+COPY --from=build /publish/LustreTodos.Server.staticwebassets.endpoints.json /app/
 
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://0.0.0.0:5000
-ENTRYPOINT ["./ElmishTodos.Server"]
+ENTRYPOINT ["./LustreTodos.Server"]

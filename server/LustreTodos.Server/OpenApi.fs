@@ -1,4 +1,4 @@
-namespace ElmishTodos.Server.OpenApi
+namespace LustreTodos.Server.OpenApi
 
 module OpenApi =
     open Microsoft.AspNetCore.OpenApi

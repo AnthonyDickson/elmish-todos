@@ -1,5 +1,5 @@
 {
   "ignoreFiles": [
-    "server/ElmishTodos.Server/Db.fs"
+    "server/LustreTodos.Server/Db.fs"
   ]
 }

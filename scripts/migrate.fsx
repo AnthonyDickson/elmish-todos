@@ -10,13 +10,13 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=server/ElmishTodos.Server/todos.db"
-let migrationsPath = "server/ElmishTodos.Server/migrations"
-let scriptPrefix = "ElmishTodos.Server.migrations."
+let connectionString = "Data Source=server/LustreTodos.Server/todos.db"
+let migrationsPath = "server/LustreTodos.Server/migrations"
+let scriptPrefix = "LustreTodos.Server.migrations."
 
 // DbUp's WithScriptsFromFileSystem uses bare filenames as ScriptName,
 // but WithScriptsEmbeddedInAssembly uses the full resource path
-// (e.g. ElmishTodos.Server.migrations.001_create_todos.sql).
+// (e.g. LustreTodos.Server.migrations.001_create_todos.sql).
 // Manually loading scripts with the namespace prefix ensures the
 // SchemaVersions journal is consistent regardless of how migrations are run.
 let scripts =

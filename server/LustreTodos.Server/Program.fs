@@ -1,4 +1,4 @@
-module ElmishTodos.Server.Program
+module LustreTodos.Server.Program
 
 open System
 open System.Collections.Generic
@@ -19,12 +19,12 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 
-open ElmishTodos.Server.ApiError
-open ElmishTodos.Server.Auth
-open ElmishTodos.Server.Config
-open ElmishTodos.Server.Json
-open ElmishTodos.Server.OpenApi
-open ElmishTodos.Server.Todos
+open LustreTodos.Server.ApiError
+open LustreTodos.Server.Auth
+open LustreTodos.Server.Config
+open LustreTodos.Server.Json
+open LustreTodos.Server.OpenApi
+open LustreTodos.Server.Todos
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Options) =
@@ -75,7 +75,7 @@ let private addOpenApiToApp (app : WebApplication) =
 
     app.MapScalarApiReference (fun opts ->
         opts
-            .WithTitle("ElmishTodos API")
+            .WithTitle("LustreTodos API")
             .WithTheme(ScalarTheme.DeepSpace)
             .WithDefaultHttpClient (ScalarTarget.Http, ScalarClient.Curl)
         |> ignore
@@ -116,7 +116,7 @@ let private applyMigrations (connectionString : string) =
     fkCmd.ExecuteNonQuery () |> ignore
 
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
-    let logger = loggerFactory.CreateLogger "ElmishTodos.Server.Program"
+    let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
 
     RequestDelegate (fun (ctx : HttpContext) ->
         task {

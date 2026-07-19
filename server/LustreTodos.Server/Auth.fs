@@ -1,4 +1,4 @@
-namespace ElmishTodos.Server.Auth
+namespace LustreTodos.Server.Auth
 
 open System
 
@@ -11,9 +11,9 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.OpenApi
 open Oxpecker
 
-open ElmishTodos.Server.Config
-open ElmishTodos.Server.ApiError
-open ElmishTodos.Server.Coders
+open LustreTodos.Server.Config
+open LustreTodos.Server.ApiError
+open LustreTodos.Server.Coders
 
 [<RequireQualifiedAccess>]
 module Auth =
