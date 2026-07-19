@@ -47,12 +47,6 @@
           "SQLitePCLRaw.core": "2.1.11"
         }
       },
-      "Microsoft.NET.ILLink.Tasks": {
-        "type": "Direct",
-        "requested": "[10.0.9, )",
-        "resolved": "10.0.9",
-        "contentHash": "Ym29niDgU57YCgFoiAFCswdtq8T68o6aE9ZQ1te4JUsRxg1tfLhF0ZGbLX2WD2BD1mZ4pcfUm7meSozUuh0uWA=="
-      },
       "Oxpecker": {
         "type": "Direct",
         "requested": "[2.1.0, )",

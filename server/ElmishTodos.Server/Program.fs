@@ -168,6 +168,26 @@ let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
 
     value
 
+
+module private Health =
+    let handler : EndpointHandler =
+        fun ctx -> task { return! ctx.Response.WriteAsync "OK" }
+
+    let endpoints () = [
+        GET [
+            route "/health" handler
+            |> addOpenApi (
+                OpenApiConfig (
+                    responseBodies = [| ResponseBody (typeof<string>, statusCode = 200) |],
+                    configureOperation =
+                        fun op _ _ ->
+                            op.Summary <- "Check whether the API is healthy"
+                            Task.CompletedTask
+                )
+            )
+        ]
+    ]
+
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
@@ -199,7 +219,7 @@ let main (args : string array) : int =
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString
     let todoEndpoints = Todos.endpoints todoStore
-    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
+    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints; Health.endpoints () ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
@@ -209,8 +229,6 @@ let main (args : string array) : int =
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
-
-    app.MapGet ("/health", Func<_> (fun () -> Task.CompletedTask)) |> ignore
 
     // Run the vite dev server for accessing the SPA bundle.
     if not (app.Environment.IsDevelopment ()) then
