@@ -20,13 +20,13 @@ module Auth =
     [<Literal>]
     let private policyName = "authenticated"
 
+    let private polAuthScheme = "polAuth"
     let private cookieScheme = CookieAuthenticationDefaults.AuthenticationScheme
     let private oidcScheme = OpenIdConnectDefaults.AuthenticationScheme
     let private bearerScheme = "bearer"
 
     let oauthRequirement (doc : OpenApiDocument) : OpenApiSecurityRequirement =
-        let schemeRef =
-            OpenApiSecuritySchemeReference ("scalarOAuth2", doc)
+        let schemeRef = OpenApiSecuritySchemeReference ("scalarOAuth2", doc)
 
         let requirement = OpenApiSecurityRequirement ()
         requirement[schemeRef] <- ResizeArray [ "openid"; "profile"; "email" ]
@@ -59,9 +59,25 @@ module Auth =
 
     let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcOptions) =
         services
+            // ASP.NET Core only authenticates with DefaultScheme per request.
+            // Since the SPA uses cookies but Scalar API docs use Bearer tokens,
+            // a policy scheme routes to the right handler based on the auth header.
             .AddAuthentication(fun options ->
-                options.DefaultScheme <- cookieScheme
-                options.DefaultChallengeScheme <- oidcScheme)
+                options.DefaultScheme <- polAuthScheme
+                options.DefaultChallengeScheme <- polAuthScheme)
+            .AddPolicyScheme(
+                polAuthScheme,
+                "Combined auth",
+                fun options ->
+                    options.ForwardDefaultSelector <-
+                        fun ctx ->
+                            let authHeader = ctx.Request.Headers.Authorization.ToString ()
+
+                            if authHeader.StartsWith ("Bearer ", StringComparison.OrdinalIgnoreCase) then
+                                bearerScheme
+                            else
+                                cookieScheme
+            )
             .AddCookie(
                 cookieScheme,
                 fun options ->
@@ -74,6 +90,7 @@ module Auth =
                     options.Cookie.SameSite <- SameSiteMode.Lax
                     options.Cookie.HttpOnly <- true
                     options.Cookie.IsEssential <- true
+                    options.LoginPath <- "/login"
                     options.ExpireTimeSpan <- TimeSpan.FromHours 1
                     options.SlidingExpiration <- true
             )
@@ -105,6 +122,17 @@ module Auth =
                 fun options ->
                     options.Authority <- oidc.Authority
                     options.RequireHttpsMetadata <- not isDevelopment
+
+                    // Authelia issues opaque access tokens by default.
+                    // Disable audience validation since Authelia sets aud to the client ID, not the resource server.
+                    options.TokenValidationParameters.ValidateAudience <- false
+
+                    if isDevelopment then
+                        // Accept self-signed TLS certs for the backchannel OIDC discovery and JWKS fetches in dev.
+                        options.BackchannelHttpHandler <-
+                            new Net.Http.HttpClientHandler (
+                                ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
+                            )
             )
             .Services.AddAuthorization (fun options ->
                 options.AddPolicy (
