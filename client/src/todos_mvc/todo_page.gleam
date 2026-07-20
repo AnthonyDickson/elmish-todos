@@ -166,6 +166,17 @@ fn create_toast(model: Model, action: TodoAction) -> Option(Toast) {
   }
 }
 
+fn visible_todos(
+  todos: List(todo_item.Todo),
+  visibility: Visibility,
+) -> List(todo_item.Todo) {
+  case visibility {
+    All -> todos
+    Active -> list.filter(todos, fn(t) { !t.completed })
+    Completed -> list.filter(todos, fn(t) { t.completed })
+  }
+}
+
 fn save_todos(todos: List(todo_item.Todo)) -> effect.Effect(msg) {
   let json_str =
     todos
@@ -376,10 +387,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       let new_title = string.trim(new_title)
 
       use <- bool.lazy_guard(when: string.is_empty(new_title), return: fn() {
-        #(
-          Model(..model, edit_state: None),
-          effect.After(0, UserDeletedTodo(id)),
-        )
+        #(Model(..model, edit_state: None), effect.Message(UserDeletedTodo(id)))
       })
 
       use item <- guard.ok(
@@ -442,12 +450,11 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
     UserDeletedCompletedTodos -> {
       let completed = list.filter(model.todos, fn(t) { t.completed })
-      let active = list.filter(model.todos, fn(t) { !t.completed })
       let delete_effects =
         list.map(completed, fn(item) {
-          effect.After(0, UserDeletedTodo(item.id))
+          effect.Message(UserDeletedTodo(item.id))
         })
-      #(Model(..model, todos: active), effect.batch(delete_effects))
+      #(model, effect.batch(delete_effects))
     }
 
     UserChangedVisibility(visibility) -> #(
@@ -604,11 +611,7 @@ pub fn view(model: Model) -> Element(Msg) {
 
   let todo_count = active_count + completed_count
 
-  let filtered_todos = case model.visibility {
-    All -> model.todos
-    Active -> list.filter(model.todos, fn(t) { !t.completed })
-    Completed -> list.filter(model.todos, fn(t) { t.completed })
-  }
+  let visible_todos = visible_todos(model.todos, model.visibility)
 
   html.div([attribute.class("bg-gray-100 h-dvh flex h-screen justify-center")], [
     case model.toasts {
@@ -650,7 +653,7 @@ pub fn view(model: Model) -> Element(Msg) {
       ]),
       html.ol(
         [attribute.class("drop-shadow-sm")],
-        list.map(filtered_todos, fn(t) { todo_list_item(model.edit_state, t) }),
+        list.map(visible_todos, todo_list_item(model.edit_state, _)),
       ),
       case todo_count > 0 {
         True ->

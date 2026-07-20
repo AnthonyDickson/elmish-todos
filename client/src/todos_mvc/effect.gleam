@@ -17,6 +17,7 @@ import todos_mvc/http_effect.{
 /// `http_effect.send` / `http_effect.send_with` directly.
 ///
 pub type Effect(msg) {
+  Message(msg)
   HttpRequest(
     method: HttpMethod,
     url: String,
@@ -172,6 +173,7 @@ fn raw_set_title(title: String) -> Nil
 ///
 pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
   case effect {
+    Message(message) -> Message(f(message))
     HttpRequest(method:, url:, body:, runner:) ->
       HttpRequest(method:, url:, body:, runner: fn(dispatch) {
         runner(fn(a) { dispatch(f(a)) })
@@ -212,6 +214,8 @@ pub fn none() -> Effect(msg) {
 ///
 pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
   case effect {
+    Message(message) -> dispatch(message)
+
     HttpRequest(runner:, ..) -> runner(dispatch)
 
     LoadFromStore(key:, callback:) -> {
