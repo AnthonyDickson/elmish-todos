@@ -102,8 +102,8 @@ identity_providers:
       id_token: '1h'
       refresh_token: '90m'
     clients:
-      - client_id: 'elmish-todos'
-        client_name: 'Elmish Todos'
+      - client_id: 'lustre-todos'
+        client_name: 'Lustre Todos'
         client_secret: '$pbkdf2-sha512$310000$bmyKd6d6FP9t/IbgDDyH2g$cjQoII37ystknXMpyKTRBy5rIaZLWiR1icGS7b/Vue3WJMyjrXLRLdekAIh7H2ZwzYTYCm09yc1uIsDZt.8eTQ'
         public: false
         redirect_uris:
@@ -130,6 +130,9 @@ identity_providers:
         public: true
         redirect_uris:
           - 'http://localhost:5000/scalar/v1'
+          - 'http://localhost:5000/scalar/'
+          - 'http://127.0.0.1:5000/scalar/v1'
+          - 'http://127.0.0.1:5000/scalar/'
         scopes:
           - 'openid'
           - 'profile'
@@ -143,3 +146,4 @@ identity_providers:
         authorization_policy: 'one_factor'
         consent_mode: 'implicit'
         token_endpoint_auth_method: 'none'
+        access_token_signed_response_alg: 'RS256'

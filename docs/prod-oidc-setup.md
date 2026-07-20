@@ -73,7 +73,7 @@ The SPA redirect URI must match `Oidc__CallbackPath`.
 
 ```bash
 export Oidc__Authority=https://auth.example.com
-export Oidc__ClientId=elmish-todos
+export Oidc__ClientId=lustre-todos
 export Oidc__ClientSecret=<your-production-secret>
 export Oidc__CallbackPath=/signin-oidc
 export Login__ReturnUrl=https://todos.example.com/
@@ -84,7 +84,7 @@ export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 Then start:
 
 ```bash
-dotnet run --project src/ElmishTodos.Server
+dotnet run --project server/src/LustreTodos.Server
 ```
 
 ## Cookie Security (Non-Development)

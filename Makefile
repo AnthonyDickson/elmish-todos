@@ -1,49 +1,54 @@
-.PHONY: server-build server-run server-watch format lint client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-run server-watch format lint client-install-deps client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
-PUBLISH_DIR ?= src/ElmishTodos.Server/bin/Release/publish
+PUBLISH_DIR ?= server/src/LustreTodos.Server/bin/Release/publish
 
 server-build:
-	dotnet build src/ElmishTodos.Server/ElmishTodos.Server.fsproj
+	dotnet build server/src/LustreTodos.Server/LustreTodos.Server.fsproj
 
 server-run:
-	ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/ElmishTodos.Server
+	ASPNETCORE_ENVIRONMENT=Development dotnet run --project server/src/LustreTodos.Server
 
 format:
-	dotnet fantomas .
+	gleam format
+	cd server && dotnet fantomas .
 
 lint:
-	dotnet fsharplint lint ElmishTodos.slnx
+	cd server && dotnet fsharplint lint LustreTodos.slnx
+
+client-install-deps:
+	cd client && npm install
 
 client-watch:
-	dotnet fable watch . --cwd src/ElmishTodos.Client --outDir build --run npx vite
+	cd client && npx vite
 
 client-build:
-	dotnet fable . --cwd src/ElmishTodos.Client --outDir build --run npx vite build
+	cd client && npx vite build
 
 copy-client-dist: client-build
-	mkdir -p src/ElmishTodos.Server/wwwroot
-	cp -r src/ElmishTodos.Client/dist/* src/ElmishTodos.Server/wwwroot/
+	mkdir -p server/src/LustreTodos.Server/wwwroot
+	cp -r client/dist/* server/src/LustreTodos.Server/wwwroot/
 
 publish: copy-client-dist
-	dotnet publish src/ElmishTodos.Server/ElmishTodos.Server.fsproj \
-		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR)
+	dotnet publish server/src/LustreTodos.Server/LustreTodos.Server.fsproj \
+		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR) \
+		-p:PublishTrimmed=true -p:TrimMode=partial
 
 # ── Database ──────────────────────────────────────────────────────────────
 
 db-migration:
 	@test -n "$(name)" || (echo "Usage: make db-migration name=<name>" >&2; exit 1)
-	@echo "-- $(name)" > src/ElmishTodos.Server/migrations/$$(printf "%03d" $$(( $$(ls src/ElmishTodos.Server/migrations/*.sql 2>/dev/null | wc -l) + 1 )))_$(name).sql
-	@echo "Created migration: migrations/$$(ls -t src/ElmishTodos.Server/migrations/*.sql | head -1 | xargs basename)"
+	@echo "-- $(name)" > server/src/LustreTodos.Server/migrations/$$(printf "%03d" $$(( $$(ls server/src/LustreTodos.Server/migrations/*.sql 2>/dev/null | wc -l) + 1 )))_$(name).sql
+	@echo "Created migration: migrations/$$(ls -t server/src/LustreTodos.Server/migrations/*.sql | head -1 | xargs basename)"
 
 db-migrate:
-	dotnet fsi scripts/migrate.fsx
+	cd server && dotnet fsi scripts/migrate.fsx
 
 db-generate:
-	dotnet sqlhydra sqlite --project src/ElmishTodos.Server/ElmishTodos.Server.fsproj
+	cd server && dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
 
 db-update: db-migrate db-generate
 
 db-reset:
-	rm -f src/ElmishTodos.Server/todos.db
+	rm -f server/src/LustreTodos.Server/todos.db
 	$(MAKE) db-update

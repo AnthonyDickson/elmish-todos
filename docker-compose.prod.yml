@@ -1,6 +1,6 @@
 services:
-  elmish-todos:
-    image: ghcr.io/anthonydickson/elmish-todos:latest
+  lustre-todos:
+    image: ghcr.io/anthonydickson/lustre-todos:latest
     restart: unless-stopped
     ports:
       - "5000:5000"
@@ -11,7 +11,7 @@ services:
       OAuth2__AuthorizationUrl: "https://127.0.0.1:9091/api/oidc/authorization"
       OAuth2__TokenUrl: "https://127.0.0.1:9091/api/oidc/token"
       Oidc__Authority: "https://127.0.0.1:9091"
-      Oidc__ClientId: "elmish-todos"
+      Oidc__ClientId: "lustre-todos"
       Oidc__ClientSecret: "elmish-todos-dev-secret"
       Oidc__CallbackPath: "/signin-oidc"
       ConnectionStrings__Default: "Data Source=/data/todos.db"

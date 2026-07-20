@@ -1,5 +1,5 @@
 {
-  description = "F# development environment";
+  description = "F#/Gleam development environment";
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
@@ -14,26 +14,23 @@
         {
           devShells.default = pkgs.mkShell {
             buildInputs = with pkgs; [
-              # .NET / F#
               dotnet-sdk_10
-
-              # Node
               nodejs_24
-
-              # Build tools
+              gleam
               gnumake
-
-              # Markdown formatting
               dprint
             ];
 
             shellHook = ''
-              echo "F# dev shell"
+              echo "F#/Gleam dev shell"
               echo "  dotnet $(dotnet --version)"
+              echo "  $(gleam --version)"
 
-              # Restore local dotnet tools (FAKE, Femto, etc.)
-              if [ -f dotnet-tools.json ]; then
+              # Restore local dotnet tools (fantomas, fsharplint, sqlhydra, etc.)
+              if [ -f server/dotnet-tools.json ]; then
+                pushd server
                 dotnet tool restore
+                popd
               fi
             '';
 

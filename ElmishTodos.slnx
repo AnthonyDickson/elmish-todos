@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="src/ElmishTodos.Shared/ElmishTodos.Shared.fsproj" />
-  <Project Path="src/ElmishTodos.Server/ElmishTodos.Server.fsproj" />
-  <Project Path="src/ElmishTodos.Client/ElmishTodos.Client.fsproj" />
-</Solution>

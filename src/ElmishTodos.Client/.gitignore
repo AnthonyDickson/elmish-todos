@@ -1,7 +1,0 @@
-bin/
-obj
-fable_modules/
-node_modules/
-dist/
-# JavaScript built by Fable
-build/

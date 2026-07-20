@@ -1,0 +1,169 @@
+namespace LustreTodos.Server.Auth
+
+open System
+
+open Microsoft.AspNetCore.Authentication
+open Microsoft.AspNetCore.Authentication.Cookies
+open Microsoft.AspNetCore.Authentication.OpenIdConnect
+open Microsoft.AspNetCore.Authorization
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.OpenApi
+open Oxpecker
+
+open LustreTodos.Server.Config
+open LustreTodos.Server.ApiError
+open LustreTodos.Server.Coders
+
+[<RequireQualifiedAccess>]
+module Auth =
+    [<Literal>]
+    let private policyName = "authenticated"
+
+    let private polAuthScheme = "polAuth"
+    let private cookieScheme = CookieAuthenticationDefaults.AuthenticationScheme
+    let private oidcScheme = OpenIdConnectDefaults.AuthenticationScheme
+    let private bearerScheme = "bearer"
+
+    let oauthRequirement (doc : OpenApiDocument) : OpenApiSecurityRequirement =
+        let schemeRef = OpenApiSecuritySchemeReference ("scalarOAuth2", doc)
+
+        let requirement = OpenApiSecurityRequirement ()
+        requirement[schemeRef] <- ResizeArray [ "openid"; "profile"; "email" ]
+        requirement
+
+    let private requirePolicy (policyName : string) : EndpointMiddleware =
+        fun next ctx ->
+            task {
+                let authz = ctx.RequestServices.GetRequiredService<IAuthorizationService> ()
+
+                let! result = authz.AuthorizeAsync (ctx.User, null, policyName)
+
+                if result.Succeeded then
+                    return! next ctx
+                else
+                    ctx.SetStatusCode 401
+                    ctx.Response.ContentType <- "application/json; charset=utf-8"
+
+                    return!
+                        ctx.Response.WriteAsync (
+                            Encode.toString {
+                                Error = "Unauthorized"
+                                Details = "Authentication required"
+                                StatusCode = Some 401
+                            }
+                        )
+            }
+
+    let requireAuth : EndpointMiddleware = requirePolicy policyName
+
+    let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcOptions) =
+        services
+            // ASP.NET Core only authenticates with DefaultScheme per request.
+            // Since the SPA uses cookies but Scalar API docs use Bearer tokens,
+            // a policy scheme routes to the right handler based on the auth header.
+            .AddAuthentication(fun options ->
+                options.DefaultScheme <- polAuthScheme
+                options.DefaultChallengeScheme <- polAuthScheme)
+            .AddPolicyScheme(
+                polAuthScheme,
+                "Combined auth",
+                fun options ->
+                    options.ForwardDefaultSelector <-
+                        fun ctx ->
+                            let authHeader = ctx.Request.Headers.Authorization.ToString ()
+
+                            if authHeader.StartsWith ("Bearer ", StringComparison.OrdinalIgnoreCase) then
+                                bearerScheme
+                            else
+                                cookieScheme
+            )
+            .AddCookie(
+                cookieScheme,
+                fun options ->
+                    options.Cookie.SecurePolicy <-
+                        if isDevelopment then
+                            CookieSecurePolicy.SameAsRequest
+                        else
+                            CookieSecurePolicy.Always
+
+                    options.Cookie.SameSite <- SameSiteMode.Lax
+                    options.Cookie.HttpOnly <- true
+                    options.Cookie.IsEssential <- true
+                    options.LoginPath <- "/login"
+                    options.ExpireTimeSpan <- TimeSpan.FromHours 1
+                    options.SlidingExpiration <- true
+            )
+            .AddOpenIdConnect(
+                oidcScheme,
+                fun options ->
+                    options.Authority <- oidc.Authority
+                    options.ClientId <- oidc.ClientId
+                    options.ClientSecret <- oidc.ClientSecret
+                    options.ResponseType <- "code"
+                    options.CallbackPath <- oidc.CallbackPath
+                    options.SaveTokens <- true
+
+                    options.Scope.Add "openid" |> ignore
+                    options.Scope.Add "profile" |> ignore
+                    options.Scope.Add "email" |> ignore
+                    options.Scope.Add "offline_access" |> ignore
+
+                    if isDevelopment then
+                        options.RequireHttpsMetadata <- false
+
+                        options.BackchannelHttpHandler <-
+                            new Net.Http.HttpClientHandler (
+                                ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
+                            )
+            )
+            .AddJwtBearer(
+                bearerScheme,
+                fun options ->
+                    options.Authority <- oidc.Authority
+                    options.RequireHttpsMetadata <- not isDevelopment
+
+                    // Authelia issues opaque access tokens by default.
+                    // Disable audience validation since Authelia sets aud to the client ID, not the resource server.
+                    options.TokenValidationParameters.ValidateAudience <- false
+
+                    if isDevelopment then
+                        // Accept self-signed TLS certs for the backchannel OIDC discovery and JWKS fetches in dev.
+                        options.BackchannelHttpHandler <-
+                            new Net.Http.HttpClientHandler (
+                                ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
+                            )
+            )
+            .Services.AddAuthorization (fun options ->
+                options.AddPolicy (
+                    policyName,
+                    fun policy ->
+                        policy.AddAuthenticationSchemes(cookieScheme, bearerScheme).RequireAuthenticatedUser ()
+                        |> ignore
+                )
+                |> ignore)
+        |> ignore
+
+    let private loginHandler (returnUrl : string) : EndpointHandler =
+        fun ctx ->
+            task {
+                if ctx.User.Identity.IsAuthenticated then
+                    ctx.Response.Redirect "/"
+                else
+                    let props = AuthenticationProperties (RedirectUri = returnUrl)
+                    return! ctx.ChallengeAsync (oidcScheme, props)
+            }
+
+    let private logoutHandler : EndpointHandler =
+        fun ctx ->
+            task {
+                // Currently Authelia does not support RP-Initiated Logout
+                // (see https://github.com/authelia/authelia/pull/11660). Once released,
+                // replace with: ctx.SignOutAsync cookieScheme then
+                // ctx.SignOutAsync (oidcScheme, AuthenticationProperties (RedirectUri = returnUrl))
+                return! ctx.SignOutAsync (cookieScheme, AuthenticationProperties (RedirectUri = "/"))
+            }
+
+    let endpoints (loginReturnUrl : string) : Oxpecker.RoutingTypes.Endpoint seq = [
+        GET [ route "/login" (loginHandler loginReturnUrl); route "/logout" logoutHandler ]
+    ]

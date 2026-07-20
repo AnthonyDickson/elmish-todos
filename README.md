@@ -1,7 +1,7 @@
-# Elmish Todos
+# Lustre Todos
 
 A port of [TodoMVC in Elm](https://github.com/evancz/elm-todomvc/) (which is based on
-[TodoMVC](https://github.com/tastejs/todomvc)) in F# using Elmish and Feliz.
+[TodoMVC](https://github.com/tastejs/todomvc)) in F# (Oxpecker backend) and Gleam (Lustre SPA frontend).
 
 ## Getting Started
 
@@ -19,6 +19,8 @@ make format
 
 # Lint
 make lint
+
+# Install NPM dependencies for the client
 
 # Start the client dev server
 make client-watch
@@ -82,36 +84,36 @@ make publish                    # linux-x64 (default)
 make publish RUNTIME=osx-arm64  # macOS Apple Silicon
 ```
 
-Builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. Output at `src/ElmishTodos.Server/bin/Release/net10.0/<runtime>/publish/`.
+Builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. Output at `server/LustreTodos.Server/bin/Release/net10.0/<runtime>/publish/`.
 
 ### Docker
 
 Build and push to a container registry:
 
 ```bash
-docker build -t ghcr.io/your-org/elmish-todos:latest .
-docker push ghcr.io/your-org/elmish-todos:latest
+docker build -t ghcr.io/your-org/lustre-todos:latest .
+docker push ghcr.io/your-org/lustre-todos:latest
 ```
 
 On the deployment server, pull and run:
 
 ```bash
-docker pull ghcr.io/your-org/elmish-todos:latest
+docker pull ghcr.io/your-org/lustre-todos:latest
 docker compose -f docker-compose.prod.yml up -d
 ```
 
 The compose file mirrors `appsettings.Development.json` defaults. For production, override `Oidc__*` and `OAuth2__*` to point at your OIDC provider:
 
 ```bash
-Oidc__ClientSecret="$(pass show oidc/elmish-todos/client-secret)" \
+Oidc__ClientSecret="$(pass show oidc/lustre-todos/client-secret)" \
   docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Static Assets
 
-**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `src/ElmishTodos.Client/public/`. Vite serves them at root in dev and copies them into `dist/` on build.
+**Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `client/public/`. Vite serves them at root in dev and copies them into `dist/` on build.
 
-**Server-only assets** (e.g. `robots.txt`) live in `src/ElmishTodos.Server/wwwroot/`. The `wwwroot/` directory is gitignored and populated by `make copy-client-dist` during publish — persistent server assets should have their source of truth elsewhere (e.g. a build step).
+**Server-only assets** (e.g. `robots.txt`) live in `server/LustreTodos.Server/wwwroot/`. The `wwwroot/` directory is gitignored and populated by `make copy-client-dist` during publish — persistent server assets should have their source of truth elsewhere (e.g. a build step).
 
 ### Authelia (Dev-only OIDC Provider)
 
@@ -144,7 +146,7 @@ The project uses a Nix flake providing `.NET SDK 10`, `fsautocomplete` (LSP), an
 nix develop   # or direnv allow if direnv is configured
 ```
 
-Local .NET tools (fantomas, fsharplint, fable) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
+Local .NET tools (fantomas, fsharplint) are defined in `.config/dotnet-tools.json`. The flake's `shellHook` runs `dotnet tool restore` automatically.
 
 ### Adding Dependencies
 
@@ -156,7 +158,6 @@ All package versions live in `Directory.Packages.props` — project files refere
 <Project>
   <ItemGroup>
     <PackageVersion Include="Oxpecker" Version="2.0.0" />
-    <PackageVersion Include="Fable.Core" Version="5.0.0" />
     <!-- … -->
   </ItemGroup>
 </Project>
@@ -172,11 +173,8 @@ All package versions live in `Directory.Packages.props` — project files refere
 ```bash
 # dotnet add package handles CPM — it adds the PackageReference
 # to the .fsproj and the PackageVersion to Directory.Packages.props
-dotnet add src/ElmishTodos.Server/ElmishTodos.Server.fsproj package SomePackage
+dotnet add server/LustreTodos.Server/LustreTodos.Server.fsproj package SomePackage
 ```
 
 The CLI writes the version into `Directory.Packages.props` and a bare `<PackageReference>` into the `.fsproj`.
 To upgrade a version, edit `Directory.Packages.props` directly and run `dotnet restore --force-evaluate --project <project>`.
-
-The shared project (`src/ElmishTodos.Shared/`) contains types used by both client and server.
-It uses conditional `PackageReference` with `FABLE_COMPILER` to select `Thoth.Json` (client) or `Thoth.Json.Net` (server) — both versions are defined in `Directory.Packages.props`.
