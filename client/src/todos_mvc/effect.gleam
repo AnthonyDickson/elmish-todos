@@ -1,7 +1,10 @@
+import gleam/function
+import gleam/http/request
+import gleam/io
 import gleam/javascript/promise
 import gleam/list
 import todos_mvc/http_effect.{
-  type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put,
+  type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put, send,
 }
 
 /// An inspectable description of a side effect. `update` returns one of these
@@ -13,8 +16,8 @@ import todos_mvc/http_effect.{
 /// not data semantics. Callers own serialisation and deserialisation.
 ///
 /// For HTTP effects, use the per-method functions below (`get`, `post`, …).
-/// For custom HTTP behaviour (auth headers, non-standard methods), use
-/// `http_effect.send` / `http_effect.send_with` directly.
+/// For custom HTTP behaviour (auth headers, non-standard methods, or
+/// non-JSON content types), construct an `HttpRequest` directly.
 ///
 pub type Effect(msg) {
   Message(msg)
@@ -22,10 +25,13 @@ pub type Effect(msg) {
     method: HttpMethod,
     url: String,
     body: String,
-    runner: fn(fn(msg) -> Nil) -> Nil,
+    content_type: String,
+    callback: fn(Result(String, HttpError)) -> msg,
+    transform: fn(request.Request(String)) -> request.Request(String),
   )
   LoadFromStore(key: String, callback: fn(Result(String, String)) -> msg)
   SaveToStore(key: String, value: String)
+  LogError(String)
   Redirect(url: String)
   SetTitle(title: String)
   After(delay: Int, message: msg)
@@ -36,76 +42,71 @@ pub type Effect(msg) {
   None
 }
 
-/// Wrap a promise from `http_effect.send` / `http_effect.send_with` into an
-/// `HttpRequest` effect. Use this when you need custom HTTP behaviour (auth
-/// headers, retry logic, non-standard methods) — build the promise with
-/// `http_effect`, then pass it here. For everyday requests, use `get`,
-/// `post`, `put`, `patch`, or `delete` directly.
-///
-/// ```gleam
-/// let promise = http_effect.send_with(Post, url, body, "application/json", fn(req) {
-///   request.set_header(req, "authorization", "Bearer " <> token)
-/// })
-/// let effect = effect.from_promise(Post, url, body, promise, TodoCreated)
-/// ```
-///
-pub fn from_promise(
-  method: HttpMethod,
-  url: String,
-  body: String,
-  promise: promise.Promise(Result(String, HttpError)),
-  callback: fn(Result(String, HttpError)) -> msg,
-) -> Effect(msg) {
-  HttpRequest(method:, url:, body:, runner: fn(dispatch: fn(msg) -> Nil) -> Nil {
-    let _ = promise |> promise.map(fn(result) { dispatch(callback(result)) })
-    Nil
-  })
-}
-
 /// `GET` the given URL.
 ///
 pub fn get(
   url: String,
   callback: fn(Result(String, HttpError)) -> msg,
 ) -> Effect(msg) {
-  let promise = http_effect.send(Get, url, "", "")
-  from_promise(Get, url, "", promise, callback)
+  HttpRequest(
+    method: Get,
+    url:,
+    body: "",
+    content_type: "",
+    callback:,
+    transform: function.identity,
+  )
 }
 
-/// `POST` a pre-serialised body to the given URL.
+/// `POST` a pre-serialised body to the given URL with `application/json`.
 ///
 pub fn post(
   url: String,
   body: String,
-  content_type: String,
   callback: fn(Result(String, HttpError)) -> msg,
 ) -> Effect(msg) {
-  let promise = http_effect.send(Post, url, body, content_type)
-  from_promise(Post, url, body, promise, callback)
+  HttpRequest(
+    method: Post,
+    url:,
+    body:,
+    content_type: "application/json",
+    callback:,
+    transform: function.identity,
+  )
 }
 
-/// `PUT` a pre-serialised body to the given URL (full replacement).
+/// `PUT` a pre-serialised body to the given URL with `application/json`.
 ///
 pub fn put(
   url: String,
   body: String,
-  content_type: String,
   callback: fn(Result(String, HttpError)) -> msg,
 ) -> Effect(msg) {
-  let promise = http_effect.send(Put, url, body, content_type)
-  from_promise(Put, url, body, promise, callback)
+  HttpRequest(
+    method: Put,
+    url:,
+    body:,
+    content_type: "application/json",
+    callback:,
+    transform: function.identity,
+  )
 }
 
-/// `PATCH` a pre-serialised body to the given URL (partial update).
+/// `PATCH` a pre-serialised body to the given URL with `application/json`.
 ///
 pub fn patch(
   url: String,
   body: String,
-  content_type: String,
   callback: fn(Result(String, HttpError)) -> msg,
 ) -> Effect(msg) {
-  let promise = http_effect.send(Patch, url, body, content_type)
-  from_promise(Patch, url, body, promise, callback)
+  HttpRequest(
+    method: Patch,
+    url:,
+    body:,
+    content_type: "application/json",
+    callback:,
+    transform: function.identity,
+  )
 }
 
 /// `DELETE` the resource at the given URL.
@@ -114,8 +115,14 @@ pub fn delete(
   url: String,
   callback: fn(Result(String, HttpError)) -> msg,
 ) -> Effect(msg) {
-  let promise = http_effect.send(Delete, url, "", "")
-  from_promise(Delete, url, "", promise, callback)
+  HttpRequest(
+    method: Delete,
+    url:,
+    body: "",
+    content_type: "",
+    callback:,
+    transform: function.identity,
+  )
 }
 
 /// Set up client-side routing: intercept clicks on internal links, listen for
@@ -174,13 +181,19 @@ fn raw_set_title(title: String) -> Nil
 pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
   case effect {
     Message(message) -> Message(f(message))
-    HttpRequest(method:, url:, body:, runner:) ->
-      HttpRequest(method:, url:, body:, runner: fn(dispatch) {
-        runner(fn(a) { dispatch(f(a)) })
-      })
+    HttpRequest(method:, url:, body:, content_type:, callback:, transform:) ->
+      HttpRequest(
+        method:,
+        url:,
+        body:,
+        content_type:,
+        callback: fn(result) { f(callback(result)) },
+        transform:,
+      )
     LoadFromStore(key:, callback:) ->
       LoadFromStore(key:, callback: fn(result) { f(callback(result)) })
     SaveToStore(key:, value:) -> SaveToStore(key:, value:)
+    LogError(message) -> LogError(message)
     Redirect(url:) -> Redirect(url:)
     SetTitle(title:) -> SetTitle(title:)
     After(delay:, message:) -> After(delay:, message: f(message))
@@ -216,7 +229,12 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
   case effect {
     Message(message) -> dispatch(message)
 
-    HttpRequest(runner:, ..) -> runner(dispatch)
+    HttpRequest(method:, url:, body:, content_type:, callback:, transform:) -> {
+      let _ =
+        send(method, url, body, content_type, transform)
+        |> promise.map(fn(result) { dispatch(callback(result)) })
+      Nil
+    }
 
     LoadFromStore(key:, callback:) -> {
       let value = raw_load_from_store(key)
@@ -228,6 +246,8 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
     }
 
     SaveToStore(key:, value:) -> raw_save_to_store(key, value)
+
+    LogError(message) -> io.println_error(message)
 
     Redirect(url:) -> raw_redirect(url)
 

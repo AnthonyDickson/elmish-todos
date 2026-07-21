@@ -65,22 +65,10 @@ fn build_request(
 
 /// Send an HTTP request and return the raw response. 2xx → `Ok(body)`,
 /// non-2xx → `Error(HttpError(status, body))`, network failure →
-/// `Error(NetworkError(description))`.
+/// `Error(NetworkError(description))`. Use `transform` to inject auth headers,
+/// CSRF tokens, or other per-request customisation.
 ///
 pub fn send(
-  method: HttpMethod,
-  url: String,
-  body: String,
-  content_type: String,
-) -> promise.Promise(Result(String, HttpError)) {
-  send_with(method, url, body, content_type, fn(req) { req })
-}
-
-/// Like `send`, but applies `transform` to the request before dispatching.
-/// Use this to inject auth headers, CSRF tokens, or other per-request
-/// customisation without forking the HTTP module.
-///
-pub fn send_with(
   method: HttpMethod,
   url: String,
   body: String,

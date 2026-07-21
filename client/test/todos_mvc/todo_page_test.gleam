@@ -2,7 +2,6 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/time/timestamp.{type Timestamp}
 import gleeunit/should
-import test_setup
 import todos_mvc/api_error
 import todos_mvc/effect.{Batch, HttpRequest, Message, Redirect}
 import todos_mvc/http_effect.{Delete}
@@ -141,9 +140,6 @@ pub fn update_submit_edited_empty_title_deletes_test() {
 // DELETE. If the HTTP fails, TodoActionFailed(Delete(...)) rollback must
 // re-insert it at its original position.
 pub fn update_delete_todo_test() {
-  test_setup.patch_location()
-  test_setup.patch_print_error()
-
   // Given a model with two todos
   let model = model_with_todos()
 

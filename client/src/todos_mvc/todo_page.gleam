@@ -1,7 +1,6 @@
 import gleam/bool
 import gleam/dynamic/decode as dynamic_decode
 import gleam/int
-import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -243,8 +242,6 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       case error.status_code {
         Some(401) -> #(model, effect.Redirect("/login"))
         _ -> {
-          io.println_error(api_error.describe(error))
-
           let toast =
             Toast(
               id: uuid.v7(),
@@ -253,7 +250,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
             )
           #(
             Model(..model, toasts: list.append(model.toasts, [toast])),
-            effect.After(5000, ToastDismissed(toast.id)),
+            effect.batch([
+              effect.LogError(api_error.describe(error)),
+              effect.After(5000, ToastDismissed(toast.id)),
+            ]),
           )
         }
       }
@@ -263,17 +263,21 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       case error.status_code {
         Some(401) -> #(updated_model, effect.Redirect("/login"))
         _ -> {
-          io.println_error(api_error.describe(error))
-
           case create_toast(model, action) {
             Some(toast) -> #(
               Model(
                 ..updated_model,
                 toasts: list.append(updated_model.toasts, [toast]),
               ),
-              effect.After(5000, ToastDismissed(toast.id)),
+              effect.batch([
+                effect.LogError(api_error.describe(error)),
+                effect.After(5000, ToastDismissed(toast.id)),
+              ]),
             )
-            None -> #(updated_model, effect.none())
+            None -> #(
+              updated_model,
+              effect.LogError(api_error.describe(error)),
+            )
           }
         }
       }
@@ -302,7 +306,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
         |> json.to_string
 
       let create_effect =
-        effect.post("/api/todos", body, "application/json", fn(result) {
+        effect.post("/api/todos", body, fn(result) {
           case result {
             Ok(_) -> NoOp
             Error(err) ->
@@ -346,7 +350,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
         |> json.to_string
       let url = "/api/todos/" <> uuid.to_string(id)
       let patch_effect =
-        effect.patch(url, body, "application/json", fn(result) {
+        effect.patch(url, body, fn(result) {
           case result {
             Ok(_) -> NoOp
             Error(err) ->
@@ -412,7 +416,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
         |> json.to_string
       let url = "/api/todos/" <> uuid.to_string(id)
       let patch_effect =
-        effect.patch(url, body, "application/json", fn(result) {
+        effect.patch(url, body, fn(result) {
           case result {
             Ok(_) -> NoOp
             Error(err) ->
