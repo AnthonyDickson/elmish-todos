@@ -136,7 +136,6 @@ module Api =
     open Oxpecker
     open Oxpecker.OpenApi
 
-    open LustreTodos.Server.Auth
     open LustreTodos.Server.Json
     open LustreTodos.Server.ApiError
     open Store
@@ -368,21 +367,21 @@ module Api =
                 )
             )
 
-    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq =
-        [
-            GET [ GetAll.endpoint store; Get.endpoint store ]
-
-            POST [ Create.endpoint store ]
-
-            PATCH [ Update.endpoint store ]
-
-            DELETE [ Delete.endpoint store; DeleteCompleted.endpoint store ]
-        ]
-        |> Seq.map (addFilter Auth.requireAuth)
+    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq = [
+        GET [ GetAll.endpoint store; Get.endpoint store ]
+        POST [ Create.endpoint store ]
+        PATCH [ Update.endpoint store ]
+        DELETE [ Delete.endpoint store; DeleteCompleted.endpoint store ]
+    ]
 
 /// This module defines the public API of the Todos feature slice
 [<RequireQualifiedAccess>]
 module Todos =
+    open Oxpecker
+
+    open LustreTodos.Server.Auth
+
     type Store = Store.Store
 
-    let endpoints = Api.endpoints
+    let endpoints (store : Store) =
+        Api.endpoints store |> Seq.map (addFilter Auth.requireAuth)

@@ -1,4 +1,4 @@
-.PHONY: server-build server-run server-watch format lint client-install-deps client-test client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-run server-watch server-test format lint client-install-deps client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
 PUBLISH_DIR ?= server/src/LustreTodos.Server/bin/Release/publish
@@ -12,6 +12,9 @@ server-run:
 format:
 	gleam format
 	cd server && dotnet fantomas .
+
+server-test:
+	dotnet test server/tests/LustreTodos.Server.Tests
 
 lint:
 	cd server && dotnet fsharplint lint LustreTodos.slnx

@@ -10,7 +10,9 @@ module Extra =
             dto.ToUnixTimeSeconds () |> float |> Encode.float
 
         let decoder (path : string) (value : JsonValue) =
-            Decode.int64 path value
+            match Decode.int64 path value with
+            | Ok v -> Ok v
+            | Error _ -> Decode.float path value |> Result.map int64
             |> Result.map (fun s -> DateTimeOffset.FromUnixTimeSeconds(s).UtcDateTime)
 
         Extra.empty |> Extra.withCustom encoder decoder

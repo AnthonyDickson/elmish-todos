@@ -1,6 +1,5 @@
 module LustreTodos.Server.Program
 
-open System
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
 open System.Reflection
