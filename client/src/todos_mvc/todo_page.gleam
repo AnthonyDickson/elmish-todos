@@ -34,6 +34,7 @@ pub type TodoAction {
   UpdateTitle(id: uuid.Uuid, previous_title: String)
   Create(id: uuid.Uuid)
   Delete(previous_todo: todo_item.Todo)
+  DeleteCompleted(List(todo_item.Todo))
 }
 
 pub type Toast {
@@ -107,6 +108,14 @@ fn rollback(model: Model, action: TodoAction) -> Model {
         })
       Model(..model, todos:)
     }
+    DeleteCompleted(completed_todos) -> {
+      let todos =
+        list.append(model.todos, completed_todos)
+        |> list.sort(fn(a, b) {
+          string.compare(uuid.to_string(a.id), uuid.to_string(b.id))
+        })
+      Model(..model, todos:)
+    }
   }
 }
 
@@ -161,6 +170,14 @@ fn create_toast(model: Model, action: TodoAction) -> Option(Toast) {
         body: "Reverted the deletion of the todo '"
           <> previous_todo.title
           <> "'",
+      ))
+    DeleteCompleted(completed_todos) ->
+      Some(Toast(
+        id: uuid.v7(),
+        title: "Could not sync changes",
+        body: "Reverted the deletion of "
+          <> int.to_string(completed_todos |> list.length)
+          <> " todos",
       ))
   }
 }
@@ -274,10 +291,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
                 effect.After(5000, ToastDismissed(toast.id)),
               ]),
             )
-            None -> #(
-              updated_model,
-              effect.LogError(api_error.describe(error)),
-            )
+            None -> #(updated_model, effect.LogError(api_error.describe(error)))
           }
         }
       }
@@ -453,12 +467,20 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
     }
 
     UserDeletedCompletedTodos -> {
-      let completed = list.filter(model.todos, fn(t) { t.completed })
-      let delete_effects =
-        list.map(completed, fn(item) {
-          effect.Message(UserDeletedTodo(item.id))
+      let #(completed, active) =
+        list.partition(model.todos, fn(t) { t.completed })
+      let delete_effect =
+        effect.delete("/api/todos/completed", fn(result) {
+          case result {
+            Ok(_) -> NoOp
+            Error(err) ->
+              TodoActionFailed(
+                DeleteCompleted(completed),
+                response.http_error_to_api_error(err),
+              )
+          }
         })
-      #(model, effect.batch(delete_effects))
+      #(Model(..model, todos: active), delete_effect)
     }
 
     UserChangedVisibility(visibility) -> #(

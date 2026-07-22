@@ -3,7 +3,7 @@ import gleam/option.{None, Some}
 import gleam/time/timestamp.{type Timestamp}
 import gleeunit/should
 import todos_mvc/api_error
-import todos_mvc/effect.{Batch, HttpRequest, Message, Redirect}
+import todos_mvc/effect.{HttpRequest, Message, Redirect}
 import todos_mvc/http_effect.{Delete}
 import todos_mvc/todo_item.{type Todo}
 import todos_mvc/todo_page
@@ -157,11 +157,12 @@ pub fn update_delete_todo_test() {
 }
 
 // Update: UserDeletedCompletedTodos
-// INVARIANT: This handler fans out, it does not act. It must NOT modify the
-// model — each batched Message(UserDeletedTodo) owns its own removal, HTTP
-// call, and error rollback. Premature removal would silently skip the HTTP
-// DELETEs.
-pub fn update_delete_completed_todos_keeps_todos_unchanged_test() {
+// INVARIANT: This handler should delete all the todos and send a batch delete
+// request. This is more efficient than fanning out which comes at a cost of
+// O(M * N) where M is the total number of todos and N is the fan-out (completed
+// todos) due to needing to scan the todos list for each delete operation.
+// The batch delete is O(M) since only one linear scan is needed.
+pub fn update_delete_completed_todos_batches_test() {
   // Given a model with three todos, two of which are completed
   let model =
     todo_page.Model(..empty_model(), todos: [todo1(), todo2(), todo3()])
@@ -170,14 +171,16 @@ pub fn update_delete_completed_todos_keeps_todos_unchanged_test() {
   let #(new_model, effect) =
     todo_page.update(model, todo_page.UserDeletedCompletedTodos)
 
-  // Then all todos should still be present (each UserDeletedTodo handles removal)
-  new_model.todos |> list.length |> should.equal(3)
-  // And the effect should be a batch of delete messages for completed todos only
-  let assert Batch([
-    Message(todo_page.UserDeletedTodo(a)),
-    Message(todo_page.UserDeletedTodo(b)),
-  ]) = effect
-  [a, b] |> should.equal([id2(), id3()])
+  // Then all completed todos are deleted
+  new_model.todos |> list.length |> should.equal(1)
+  let assert Ok(todo_item.Todo(completed: False, ..)) =
+    list.first(new_model.todos)
+  // And the effect should be a request for batch deletion
+  let assert effect.HttpRequest(
+    method: http_effect.Delete,
+    url: "/api/todos/completed",
+    ..,
+  ) = effect
 }
 
 // Update: TodoActionFailed (Delete) rollback re-inserts in order

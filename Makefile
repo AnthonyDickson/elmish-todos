@@ -1,4 +1,4 @@
-.PHONY: server-build server-run server-watch format lint client-install-deps client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-run server-watch format lint client-install-deps client-test client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
 PUBLISH_DIR ?= server/src/LustreTodos.Server/bin/Release/publish
@@ -18,6 +18,9 @@ lint:
 
 client-install-deps:
 	cd client && npm install
+
+client-test:
+	cd client && gleam test
 
 client-watch:
 	cd client && npx vite

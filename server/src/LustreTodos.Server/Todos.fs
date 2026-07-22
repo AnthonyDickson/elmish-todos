@@ -119,6 +119,17 @@ module Store =
             return rows > 0
         }
 
+    let deleteCompleted (store : Store) =
+        task {
+            let! _ =
+                deleteTask store.Db {
+                    for t in main.Todos do
+                        where (t.Completed = true)
+                }
+
+            return ()
+        }
+
 module Api =
     open System.Threading.Tasks
 
@@ -331,6 +342,32 @@ module Api =
                 )
             )
 
+    module DeleteCompleted =
+        let handler (store : Store) : EndpointHandler =
+            fun ctx ->
+                task {
+                    do! Store.deleteCompleted store
+
+                    ctx.SetStatusCode 204
+                    return ()
+                }
+
+        let endpoint (store : Store) =
+            route "/api/todos/completed" (handler store)
+            |> addOpenApi (
+                OpenApiConfig (
+                    responseBodies = [|
+                        ResponseBody (typeof<unit>, statusCode = 204)
+                        ResponseBody (typeof<ApiError>, statusCode = 401)
+                    |],
+                    configureOperation =
+                        fun op _ _ ->
+                            op.Summary <- "Delete all completed todo"
+                            op.Description <- "Permanently removes all completed todos. Returns 204 on success."
+                            Task.CompletedTask
+                )
+            )
+
     let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq =
         [
             GET [ GetAll.endpoint store; Get.endpoint store ]
@@ -339,7 +376,7 @@ module Api =
 
             PATCH [ Update.endpoint store ]
 
-            DELETE [ Delete.endpoint store ]
+            DELETE [ Delete.endpoint store; DeleteCompleted.endpoint store ]
         ]
         |> Seq.map (addFilter Auth.requireAuth)
 
