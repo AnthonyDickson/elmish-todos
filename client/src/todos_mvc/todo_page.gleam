@@ -561,6 +561,7 @@ fn todo_list_item(
           attribute.type_("text"),
           attribute.autofocus(True),
           attribute.value(new_title),
+          attribute.attribute("data-testid", "edit-todo-input"),
           event.on_input(fn(text) { UserEditedTodo(text) }),
           event.on_keydown(fn(key) {
             case key {
@@ -579,6 +580,7 @@ fn todo_list_item(
       html.li(
         [
           attribute.class(li_classes),
+          attribute.attribute("data-testid", "todo-item"),
           event.on(
             "dblclick",
             dynamic_decode.success(UserEnteredEditMode(item.id)),
@@ -589,10 +591,12 @@ fn todo_list_item(
             attribute.type_("checkbox"),
             attribute.class("w-5 mx-5"),
             attribute.checked(item.completed),
+            attribute.attribute("data-testid", "todo-checkbox"),
             event.on_check(fn(_) { UserToggledCompletedStatus(item.id) }),
           ]),
           html.p(
             [
+              attribute.attribute("data-testid", "todo-title"),
               attribute.class(case item.completed {
                 True -> "line-through text-gray-300"
                 False -> "text-gray-600"
@@ -605,6 +609,7 @@ fn todo_list_item(
               attribute.class(
                 "ml-auto mx-5 w-5 text-red-400/0 group-hover:text-red-400",
               ),
+              attribute.attribute("data-testid", "delete-todo"),
               event.on_click(UserDeletedTodo(item.id)),
             ],
             [text("x")],
@@ -665,6 +670,7 @@ pub fn view(model: Model) -> Element(Msg) {
           attribute.autofocus(True),
           attribute.value(model.new_todo),
           attribute.placeholder("What needs to be done?"),
+          attribute.attribute("data-testid", "new-todo-input"),
           attribute.class(
             "text-gray-600 text-2xl bg-gray-50 drop-shadow-sm focus-visible:outline-none py-5 px-15 min-w-xl placeholder:text-2xl placeholder:text-gray-300 placeholder:italic",
           ),
@@ -690,7 +696,7 @@ pub fn view(model: Model) -> Element(Msg) {
               ),
             ],
             [
-              html.p([attribute.class("pt-1")], [
+              html.p([attribute.class("pt-1"), attribute.attribute("data-testid", "todo-count")], [
                 html.strong([], [text(int.to_string(active_count))]),
                 text(case active_count {
                   1 -> " item left"
@@ -702,6 +708,7 @@ pub fn view(model: Model) -> Element(Msg) {
                   [
                     attribute.href("/"),
                     attribute.class(visibility_classes(All, model.visibility)),
+                    attribute.attribute("data-testid", "filter-all"),
                   ],
                   [text("All")],
                 ),
@@ -709,6 +716,7 @@ pub fn view(model: Model) -> Element(Msg) {
                   [
                     attribute.href("/active"),
                     attribute.class(visibility_classes(Active, model.visibility)),
+                    attribute.attribute("data-testid", "filter-active"),
                   ],
                   [text("Active")],
                 ),
@@ -719,6 +727,7 @@ pub fn view(model: Model) -> Element(Msg) {
                       Completed,
                       model.visibility,
                     )),
+                    attribute.attribute("data-testid", "filter-completed"),
                   ],
                   [text("Completed")],
                 ),
@@ -734,6 +743,7 @@ pub fn view(model: Model) -> Element(Msg) {
                       }
                     },
                   ),
+                  attribute.attribute("data-testid", "clear-completed"),
                   event.on_click(UserDeletedCompletedTodos),
                 ],
                 [
@@ -750,6 +760,7 @@ pub fn view(model: Model) -> Element(Msg) {
         html.button(
           [
             attribute.class("text-sm text-gray-400 hover:text-gray-600"),
+            attribute.attribute("data-testid", "logout"),
             event.on_click(UserClickedLogout),
           ],
           [text("Logout")],

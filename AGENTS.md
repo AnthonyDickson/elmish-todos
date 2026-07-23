@@ -9,11 +9,15 @@ A full-stack todo app with an Oxpecker F# .NET 10 backend (SQLite + OIDC auth + 
 ```bash
 make server-build    # Build the server
 make server-run      # Run the server (auto-applies DB migrations)
+make server-test     # Server xUnit tests
+make client-install-deps  # npm install
 make client-watch    # Start the client dev server (Vite + Gleam watch)
 make client-build    # Production client bundle
+make client-test     # Client gleeunit tests
+make e2e-test        # Playwright E2E tests in Docker
 make copy-client-dist # Copy client dist into server wwwroot/
 make publish         # Single-file publish (builds client, copies assets, publishes server)
-make format          # Format F# with fantomas
+make format          # Format F# with fantomas + gleam format
 make lint            # Lint F# with fsharplint
 ```
 
@@ -24,7 +28,7 @@ make publish                    # linux-x64 (default)
 make publish RUNTIME=osx-arm64  # macOS Apple Silicon
 ```
 
-This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `server/src/LustreTodos.Server/bin/Release/net10.0/<runtime>/publish/`.
+This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `server/src/LustreTodos.Server/bin/Release/publish/`.
 
 ### Database Commands
 
@@ -36,7 +40,7 @@ make db-update                  # db-migrate + db-generate (full schema update)
 make db-reset                   # Delete DB, re-apply all migrations, regenerate
 ```
 
-Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `npm install` in `client/`.
+Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `make client-install-deps` to install npm packages.
 
 ## File Structure & Compilation Order
 
@@ -73,14 +77,25 @@ server/
 client/
   src/
     app.gleam                         # Entry point + app shell + routing
-    todo_page.gleam                   # Full TodoMVC (model, update, view)
-    effect.gleam                      # Effect type + interpreter + HTTP constructors
-    http_effect.gleam                 # HTTP transport: HttpMethod, HttpError, send/send_with
-    effect_ffi.mjs                    # Browser FFI (localStorage, redirect, navigation)
-    response.gleam                    # Decode helpers + JSON error formatting
-    todo_item.gleam                    # Todo + UpdateTodoRequest types + JSON codecs
-    api_error.gleam                   # ApiError type + JSON codec
     app.css                           # Tailwind CSS v4 entry
+    main.js                           # Vite entry point
+    todos_mvc/
+      todo_page.gleam                 # Full TodoMVC (model, update, view)
+      effect.gleam                    # Effect type + interpreter + HTTP constructors
+      http_effect.gleam               # HTTP transport: HttpMethod, HttpError, send/send_with
+      effect_ffi.mjs                  # Browser FFI (localStorage, redirect, navigation)
+      response.gleam                  # Decode helpers + JSON error formatting
+      todo_item.gleam                 # Todo + UpdateTodoRequest types + JSON codecs
+      api_error.gleam                 # ApiError type + JSON codec
+      guard.gleam                     # use-compatible early-return for Option/Result
+  test/
+    todos_mvc/
+      todo_page_test.gleam            # Pure unit tests for update logic
+tests/
+  e2e/
+    global-setup.ts                   # OIDC login before test suite
+    todos.spec.ts                     # Playwright test specs
+    playwright.config.ts              # Playwright configuration
 ```
 
 ## Architecture
@@ -166,6 +181,11 @@ Two-layer MVU:
 - `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, `window.location.assign`, and client-side navigation (click interception on internal links, popstate listener, `history.pushState`/`replaceState`).
 - `response.gleam` — `decode_success` (2xx body → typed `Result`) and `http_error_to_api_error` (`HttpError` → `ApiError`) helpers. Pages that branch on specific HTTP status codes (e.g. 401) also need `import http_effect.{HttpError}`.
 - `todo_item.gleam` / `api_error.gleam` — Shared types with explicit `gleam_json` decoders.
+- `guard.gleam` — `use`-compatible helpers (`guard.some`, `guard.ok`) for early return from `Option`/`Result`.
+
+### Tests
+
+Three layers: server xUnit tests (`make server-test`, ephemeral SQLite, no auth), client gleeunit tests (`make client-test`, pure `update` unit tests, no browser), and E2E Playwright tests (`make e2e-test`, full stack in Docker Compose with Authelia). E2E tests use `data-testid` attributes for selectors — add them to `todo_page.gleam` when new interactive elements are introduced.
 
 ### Static Assets
 
@@ -199,4 +219,4 @@ Json-serialized `ApiError` records (`{ Error: string; Details: string; StatusCod
 - **SqlHydra query parameters**: Function parameters can't be captured directly in query expressions. Bind them to local `let` values first (e.g. `let idStr = id.ToString()` before using in a `where` clause).
 - **Central Package Management**: Versions in `Directory.Packages.props`; project files use bare `<PackageReference Include="..." />`.
 - **Client needs `npm install`** before first `make client-watch` or `make client-build`.
-- **No test project yet** — add under `tests/`.
+- **Tests** — xUnit in `server/tests/`, gleeunit in `client/test/`, Playwright E2E in `tests/e2e/`.

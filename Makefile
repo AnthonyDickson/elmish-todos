@@ -1,5 +1,6 @@
-.PHONY: server-build server-watch server-test client-install-deps client-watch \
-		client-build copy-client-dist publish format lint \
+.PHONY: server-build server-watch server-test \
+		client-install-deps client-watch client-build client-test \
+		copy-client-dist publish format lint e2e-test \
 		db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
@@ -41,6 +42,9 @@ format:
 
 lint:
 	cd server && dotnet fsharplint lint LustreTodos.slnx
+
+e2e-test:
+	docker compose -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
 
 # ── Database ──────────────────────────────────────────────────────────────
 

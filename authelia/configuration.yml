@@ -14,6 +14,7 @@ session:
   expiration: '1h'
   remember_me: '1M'
   cookies:
+    # Dev: host networking — browser on host resolves 127.0.0.1
     - domain: '127.0.0.1'
       authelia_url: 'https://127.0.0.1:9091'
       name: 'authelia_session'
@@ -107,7 +108,9 @@ identity_providers:
         client_secret: '$pbkdf2-sha512$310000$bmyKd6d6FP9t/IbgDDyH2g$cjQoII37ystknXMpyKTRBy5rIaZLWiR1icGS7b/Vue3WJMyjrXLRLdekAIh7H2ZwzYTYCm09yc1uIsDZt.8eTQ'
         public: false
         redirect_uris:
+          # Dev (host networking): browser on host
           - 'http://localhost:5000/signin-oidc'
+          - 'http://localhost:5173/signin-oidc'
           - 'https://127.0.0.1:9091/signin-oidc'
         scopes:
           - 'openid'
