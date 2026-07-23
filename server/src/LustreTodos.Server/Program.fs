@@ -169,27 +169,6 @@ let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
 
     value
 
-
-module private Health =
-    let handler : EndpointHandler =
-        fun ctx -> task { return! ctx.Response.WriteAsync "OK" }
-
-    let endpoints () = [
-        GET [
-            route "/health" handler
-            |> addOpenApi (
-                OpenApiConfig (
-                    responseBodies = [| ResponseBody (typeof<string>, statusCode = 200) |],
-                    configureOperation =
-                        fun op _ _ ->
-                            op.Summary <- "Check whether the API is healthy"
-                            op.Security <- ResizeArray ()
-                            Task.CompletedTask
-                )
-            )
-        ]
-    ]
-
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
@@ -221,7 +200,7 @@ let main (args : string array) : int =
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString
     let todoEndpoints = Todos.endpoints todoStore
-    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints; Health.endpoints () ]
+    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore

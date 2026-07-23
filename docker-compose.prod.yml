@@ -18,7 +18,7 @@ services:
     volumes:
       - todos-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/5000"]
       interval: 30s
       timeout: 5s
       retries: 3

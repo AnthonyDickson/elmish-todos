@@ -8,3 +8,7 @@
 .vscode/
 .ionide/
 authelia/
+*.db
+*.db-shm
+*.db-wal
+.env*
