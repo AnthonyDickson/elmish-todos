@@ -6,7 +6,7 @@ const backendPaths = ['/api', '/login', '/logout', '/signin-oidc']
 
 const proxy = Object.fromEntries(
   backendPaths.map(path => [path, {
-    target: 'http://localhost:5000',
+    target: process.env.BACKEND_URL ?? 'http://localhost:5000',
     changeOrigin: true,
   }])
 )
