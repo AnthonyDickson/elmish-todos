@@ -1,4 +1,6 @@
-.PHONY: server-build server-run server-watch server-test format lint client-install-deps client-watch client-build copy-client-dist publish db-migration db-migrate db-generate db-update db-reset
+.PHONY: server-build server-watch server-test client-install-deps client-watch \
+		client-build copy-client-dist publish format lint \
+		db-migration db-migrate db-generate db-update db-reset
 
 RUNTIME ?= linux-x64
 PUBLISH_DIR ?= server/src/LustreTodos.Server/bin/Release/publish
@@ -6,18 +8,11 @@ PUBLISH_DIR ?= server/src/LustreTodos.Server/bin/Release/publish
 server-build:
 	dotnet build server/src/LustreTodos.Server/LustreTodos.Server.fsproj
 
-server-run:
-	ASPNETCORE_ENVIRONMENT=Development dotnet run --project server/src/LustreTodos.Server
-
-format:
-	gleam format
-	cd server && dotnet fantomas .
+server-watch:
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/LustreTodos.Server --no-hot-reload
 
 server-test:
 	dotnet test server/tests/LustreTodos.Server.Tests
-
-lint:
-	cd server && dotnet fsharplint lint LustreTodos.slnx
 
 client-install-deps:
 	cd client && npm install
@@ -39,6 +34,13 @@ publish: copy-client-dist
 	dotnet publish server/src/LustreTodos.Server/LustreTodos.Server.fsproj \
 		-c Release -r $(RUNTIME) -o $(PUBLISH_DIR) \
 		-p:PublishTrimmed=true -p:TrimMode=partial
+
+format:
+	gleam format
+	cd server && dotnet fantomas .
+
+lint:
+	cd server && dotnet fsharplint lint LustreTodos.slnx
 
 # ── Database ──────────────────────────────────────────────────────────────
 
