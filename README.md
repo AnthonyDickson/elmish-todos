@@ -1,3 +1,5 @@
+[![CI](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml)
+
 # Lustre Todos
 
 A TodoMVC port with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI)

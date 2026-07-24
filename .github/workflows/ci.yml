@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+          cache: true
+          cache-dependency-path: server/tests/LustreTodos.Server.Tests/packages.lock.json
+
+      - run: dotnet test server/tests/LustreTodos.Server.Tests
+
+  client-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: false
+          gleam-version: '1.17.x'
+
+      - uses: actions/cache@v6
+        with:
+          path: client/build
+          key: gleam-${{ runner.os }}-${{ hashFiles('client/manifest.toml') }}
+          restore-keys: gleam-${{ runner.os }}-
+
+      - run: gleam test
+        working-directory: client
