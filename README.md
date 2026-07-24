@@ -40,7 +40,8 @@ See the [Makefile](Makefile) for all targets.
 - **Testing** — xUnit server tests, gleeunit client unit tests, Playwright E2E
   tests via Docker Compose. See `docs/server-tests.md`, `docs/client-architecture.md#client-tests`, and `docs/e2e-tests.md`.
 - **Deployment** — Single-file publish (`make publish`) or Docker
-  (`docker build` + copy `docker-compose.prod.example.yml` to `docker-compose.prod.yml`, customize, then `docker compose up -d`).
+  (`docker build` + `docker compose -f docker-compose.prod.yml up -d`).
+  Intended to be hosted behind a reverse proxy.
   See [Deployment](docs/deployment.md).
 
 ## Dev Environment

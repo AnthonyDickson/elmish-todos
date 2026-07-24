@@ -8,6 +8,7 @@ open System.Threading.Tasks
 open DbUp
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Data.Sqlite
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
@@ -169,6 +170,16 @@ let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
 
     value
 
+let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit =
+    options.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
+    options.KnownIPNetworks.Clear ()
+    options.KnownProxies.Clear ()
+
+    // Trust common Docker/private network ranges
+    options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "10.0.0.0/8")
+    options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
+    options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
+
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
@@ -184,15 +195,19 @@ let main (args : string array) : int =
 
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
+    builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
+    |> ignore
+
     if builder.Environment.IsDevelopment () then
         addOpenApiToBuilder builder oauth2
 
     let app = builder.Build ()
+    let isDevelopment = app.Environment.IsDevelopment ()
 
     let connectionString = app.Configuration.GetConnectionString "Default"
     applyMigrations connectionString
 
-    if app.Environment.IsDevelopment () then
+    if isDevelopment then
         addOpenApiToApp app
 
     let loginReturnUrl = login.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
@@ -205,14 +220,15 @@ let main (args : string array) : int =
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
+    app.UseForwardedHeaders () |> ignore
     app.UseStaticFiles () |> ignore
     app.UseRouting () |> ignore
     app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
 
-    // Run the vite dev server for accessing the SPA bundle.
-    if not (app.Environment.IsDevelopment ()) then
+    // Run the vite dev server for accessing the SPA bundle in the dev environment.
+    if not isDevelopment then
         app.MapFallbackToFile "index.html" |> ignore
 
     app.Run ()

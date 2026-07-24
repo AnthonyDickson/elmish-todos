@@ -57,7 +57,6 @@ ConnectionStrings__Default="Data Source=/data/todos.db" \
 ```
 
 > **Note**: `docker-compose.prod.yml` is gitignored. Copy from `docker-compose.prod.example.yml` and customize it.
-```
 
 Use an absolute path — relative paths resolve to the container's working directory,
 which is ephemeral.
@@ -72,3 +71,8 @@ on build. They reach the server via `make copy-client-dist`.
 The `wwwroot/` directory is gitignored and populated by `copy-client-dist` during
 publish. Persistent server assets should have their source of truth elsewhere
 (e.g. a build step that copies them in).
+
+## Hosting
+
+The web server is intended to be served from behind a reverse proxy such as nginx or caddy. No effort is made to make the
+web server secure to deploy on it's own.
