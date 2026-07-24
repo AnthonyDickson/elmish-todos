@@ -27,11 +27,12 @@ publishes the server into a `debian:stable-slim` runtime image with only `ca-cer
 ### Deploying
 
 ```bash
-docker pull ghcr.io/your-org/lustre-todos:latest
+cp docker-compose.prod.example.yml docker-compose.prod.yml
+# edit docker-compose.prod.yml with your OIDC settings, then:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-The compose file ships with dev OIDC defaults. Override for production:
+The example compose file ships with dev OIDC defaults. Override for production:
 
 ```bash
 Oidc__Authority=https://auth.example.com \
@@ -42,6 +43,8 @@ Login__ReturnUrl=https://todos.example.com/ \
   docker compose -f docker-compose.prod.yml up -d
 ```
 
+> **Note**: `docker-compose.prod.yml` is gitignored. Copy from `docker-compose.prod.example.yml` and customize it.
+
 See [Production OIDC Setup](prod-oidc-setup.md) for the full OIDC configuration guide.
 
 ### Database in Production
@@ -51,6 +54,9 @@ The server uses SQLite. Override the connection string to use a persistent path:
 ```bash
 ConnectionStrings__Default="Data Source=/data/todos.db" \
   docker compose -f docker-compose.prod.yml up -d
+```
+
+> **Note**: `docker-compose.prod.yml` is gitignored. Copy from `docker-compose.prod.example.yml` and customize it.
 ```
 
 Use an absolute path — relative paths resolve to the container's working directory,
