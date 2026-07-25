@@ -199,6 +199,10 @@ let main (args : string array) : int =
     builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
     |> ignore
 
+    builder.Services.Configure<HostOptions> (fun (options : HostOptions) ->
+        options.ShutdownTimeout <- System.TimeSpan.FromSeconds 30L)
+    |> ignore
+
     builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
