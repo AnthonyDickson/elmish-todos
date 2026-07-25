@@ -38,3 +38,58 @@ jobs:
 
       - run: gleam test
         working-directory: client
+
+  format-gleam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: false
+          gleam-version: '1.17.x'
+
+      - run: gleam format --check
+        working-directory: client
+
+  format-fsharp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ runner.os }}-${{ hashFiles('server/dotnet-tools.json') }}
+          restore-keys: dotnet-tools-${{ runner.os }}-
+
+      - run: dotnet tool restore
+        working-directory: server
+
+      - run: dotnet fantomas --check .
+        working-directory: server
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ runner.os }}-${{ hashFiles('server/dotnet-tools.json') }}
+          restore-keys: dotnet-tools-${{ runner.os }}-
+
+      - run: dotnet tool restore
+        working-directory: server
+
+      - run: dotnet fsharplint lint LustreTodos.slnx
+        working-directory: server
