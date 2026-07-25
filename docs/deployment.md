@@ -56,8 +56,6 @@ ConnectionStrings__Default="Data Source=/data/todos.db" \
   docker compose -f docker-compose.prod.yml up -d
 ```
 
-> **Note**: `docker-compose.prod.yml` is gitignored. Copy from `docker-compose.prod.example.yml` and customize it.
-
 Use an absolute path — relative paths resolve to the container's working directory,
 which is ephemeral.
 
@@ -74,5 +72,5 @@ publish. Persistent server assets should have their source of truth elsewhere
 
 ## Hosting
 
-The web server is intended to be served from behind a reverse proxy such as nginx or caddy. No effort is made to make the
-web server secure to deploy on it's own.
+The web server is intended to run behind a reverse proxy such as nginx or Caddy.
+No effort is made to make the web server secure to deploy on its own.

@@ -14,6 +14,16 @@ Using Docker:
 docker compose up
 ```
 
+Starts three services:
+
+| Service   | Port  | Notes                                     |
+| --------- | ----- | ----------------------------------------- |
+| Authelia  | 9091  | Dev OIDC provider (user `dev` / `dev-password`) |
+| Server    | 5000  | .NET backend with API docs at `/scalar/v1`      |
+| Client    | 5173  | Vite dev server with hot reload                 |
+
+Open `http://localhost:5173` and log in with `dev` / `dev-password`.
+
 Or natively:
 
 ```bash
@@ -31,7 +41,8 @@ See the [Makefile](Makefile) for all targets.
 
 - **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer).
   Endpoints live in a single vertical slice (`Todos.fs`). SQLite with DbUp
-  migrations and SqlHydra type-safe queries. See [Database](docs/database.md).
+  migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json`,
+  interactive API docs at `/scalar/v1`. See [Database](docs/database.md).
 - **Frontend** — Gleam/Lustre SPA with nested MVU. A custom `Effect` type
   keeps `update` pure — all I/O (HTTP, localStorage, navigation) runs through
   one interpreter. See [Client Architecture](docs/client-architecture.md).
@@ -46,7 +57,7 @@ See the [Makefile](Makefile) for all targets.
 
 ## Dev Environment
 
-Nix flake (.NET SDK 10, fsautocomplete, dprint). NuGet Central Package
+Nix flake (.NET SDK 10, fsautocomplete, fantomas). NuGet Central Package
 Management — versions in `Directory.Packages.props`.
 
 ## Docs

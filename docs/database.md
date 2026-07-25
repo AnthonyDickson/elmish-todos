@@ -23,7 +23,7 @@ No code-gen needed — `Db.fs` is committed. Just build and run:
 
 ```bash
 make server-build    # Db.fs compiles immediately
-make server-run     # DbUp creates todos.db + applies migrations at startup
+make server-watch   # DbUp creates todos.db + applies migrations at startup
 ```
 
 ### Changing the schema

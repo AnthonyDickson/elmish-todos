@@ -8,7 +8,7 @@ A full-stack todo app with an Oxpecker F# .NET 10 backend (SQLite + OIDC auth + 
 
 ```bash
 make server-build    # Build the server
-make server-run      # Run the server (auto-applies DB migrations)
+make server-watch    # Run the server (auto-applies DB migrations)
 make server-test     # Server xUnit tests
 make client-install-deps  # npm install
 make client-watch    # Start the client dev server (Vite + Gleam watch)
@@ -136,7 +136,7 @@ The `Store` holds a `QueryContextFactory` (from `Db.fs`) wired at startup in `Pr
 ```bash
 cd server && dotnet restore
 make server-build    # Db.fs is committed — compiles immediately
-make server-run     # DbUp creates todos.db + applies migrations at startup
+make server-watch   # DbUp creates todos.db + applies migrations at startup
 ```
 
 **Changing the schema:**
