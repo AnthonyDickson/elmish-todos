@@ -15,6 +15,8 @@ type OidcOptions = {
 
     [<Required>]
     CallbackPath : string
+
+    ValidAudiences : string array
 }
 
 [<CLIMutable>]

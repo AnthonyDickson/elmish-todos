@@ -123,9 +123,13 @@ module Auth =
                     options.Authority <- oidc.Authority
                     options.RequireHttpsMetadata <- not isDevelopment
 
-                    // Authelia issues opaque access tokens by default.
-                    // Disable audience validation since Authelia sets aud to the client ID, not the resource server.
-                    options.TokenValidationParameters.ValidateAudience <- false
+                    if isNull oidc.ValidAudiences || oidc.ValidAudiences.Length = 0 then
+                        // No audiences configured — disable validation.
+                        // Authelia does not include an aud claim in access tokens.
+                        options.TokenValidationParameters.ValidateAudience <- false
+                    else
+                        options.TokenValidationParameters.ValidateAudience <- true
+                        options.TokenValidationParameters.ValidAudiences <- oidc.ValidAudiences
 
                     if isDevelopment then
                         // Accept self-signed TLS certs for the backchannel OIDC discovery and JWKS fetches in dev.
