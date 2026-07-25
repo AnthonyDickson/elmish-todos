@@ -12,9 +12,8 @@ open Oxpecker
 open LustreTodos.Server.Todos
 open LustreTodos.Server.Todos.Store
 
-type TestApp() =
-    let dbPath =
-        Path.Combine(Path.GetTempPath(), $"test-todos-{Guid.NewGuid()}.db")
+type TestApp () =
+    let dbPath = Path.Combine (Path.GetTempPath (), $"test-todos-{Guid.NewGuid ()}.db")
 
     let connectionString = $"Data Source={dbPath}"
 
@@ -29,7 +28,7 @@ type TestApp() =
                     .SqliteDatabase(connectionString)
                     .WithScriptsEmbeddedInAssembly(typeof<Todo>.Assembly)
                     .Build()
-                    .PerformUpgrade()
+                    .PerformUpgrade ()
 
             if not result.Successful then
                 failwithf "Test database migration failed: %O" result.Error
@@ -39,30 +38,31 @@ type TestApp() =
                 .ConfigureWebHost(fun webHostBuilder ->
                     webHostBuilder
                         .UseTestServer()
-                        .ConfigureServices(fun services ->
-                            services.AddRouting().AddOxpecker() |> ignore)
-                        .Configure(fun app ->
-                            app.UseRouting().UseOxpecker(endpoints) |> ignore)
+                        .ConfigureServices(fun services -> services.AddRouting().AddOxpecker () |> ignore)
+                        .Configure (fun app -> app.UseRouting().UseOxpecker (endpoints) |> ignore)
                     |> ignore)
-                .Build()
+                .Build ()
 
-        h.StartAsync().GetAwaiter().GetResult()
+        h.StartAsync().GetAwaiter().GetResult ()
         h
 
-    let client = host.GetTestClient()
+    let client = host.GetTestClient ()
 
     member _.Client = client
 
-    member _.CleanDatabase() =
-        use conn = new SqliteConnection(connectionString)
-        conn.Open()
-        use cmd = conn.CreateCommand()
+    member _.CleanDatabase () =
+        use conn = new SqliteConnection (connectionString)
+        conn.Open ()
+        use cmd = conn.CreateCommand ()
         cmd.CommandText <- "DELETE FROM Todos"
-        cmd.ExecuteNonQuery() |> ignore
+        cmd.ExecuteNonQuery () |> ignore
 
     interface IDisposable with
-        member _.Dispose() =
-            client.Dispose()
-            host.Dispose()
-            try File.Delete dbPath with _ -> ()
+        member _.Dispose () =
+            client.Dispose ()
+            host.Dispose ()
 
+            try
+                File.Delete dbPath
+            with _ ->
+                ()

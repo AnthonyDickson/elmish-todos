@@ -696,13 +696,19 @@ pub fn view(model: Model) -> Element(Msg) {
               ),
             ],
             [
-              html.p([attribute.class("pt-1"), attribute.attribute("data-testid", "todo-count")], [
-                html.strong([], [text(int.to_string(active_count))]),
-                text(case active_count {
-                  1 -> " item left"
-                  _ -> " items left"
-                }),
-              ]),
+              html.p(
+                [
+                  attribute.class("pt-1"),
+                  attribute.attribute("data-testid", "todo-count"),
+                ],
+                [
+                  html.strong([], [text(int.to_string(active_count))]),
+                  text(case active_count {
+                    1 -> " item left"
+                    _ -> " items left"
+                  }),
+                ],
+              ),
               html.div([attribute.class("flex gap-2")], [
                 html.a(
                   [
