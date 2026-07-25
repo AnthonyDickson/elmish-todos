@@ -1,4 +1,5 @@
 [![CI](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/e2e.yml/badge.svg)](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/e2e.yml)
 
 # Lustre Todos
 
