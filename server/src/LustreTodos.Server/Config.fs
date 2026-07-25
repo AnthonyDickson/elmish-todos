@@ -22,6 +22,9 @@ type OidcOptions = {
 [<CLIMutable>]
 type OAuth2Options = {
     [<Required>]
+    ClientId : string
+
+    [<Required>]
     AuthorizationUrl : string
 
     [<Required>]

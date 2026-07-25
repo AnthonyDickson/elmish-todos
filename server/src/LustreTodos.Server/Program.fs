@@ -28,9 +28,9 @@ open LustreTodos.Server.OpenApi
 open LustreTodos.Server.Todos
 
 
-let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Options) =
-    let oauth2AuthUrl = oauth2.AuthorizationUrl
-    let oauth2TokenUrl = oauth2.TokenUrl
+let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
+    let oauth2AuthUrl = ouath2.AuthorizationUrl
+    let oauth2TokenUrl = ouath2.TokenUrl
 
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
@@ -71,7 +71,7 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAut
         |> ignore)
     |> ignore
 
-let private addOpenApiToApp (app : WebApplication) =
+let private addOpenApiToApp (app : WebApplication) (clientId : string) =
     app.MapOpenApi () |> ignore
 
     app.MapScalarApiReference (fun opts ->
@@ -86,7 +86,7 @@ let private addOpenApiToApp (app : WebApplication) =
             .AddAuthorizationCodeFlow (
                 "scalarOAuth2",
                 fun flow ->
-                    flow.ClientId <- "scalar-docs"
+                    flow.ClientId <- clientId
                     flow.Pkce <- Pkce.Sha256
                     flow.SelectedScopes <- [| "openid"; "profile"; "email" |]
             )
@@ -185,14 +185,16 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
 
-    let oidc = readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
+    let oidcOptions =
+        readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
 
-    let oauth2 =
+    let oauthOptions =
         readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
 
-    let login = readSection<LoginOptions> builder.Services builder.Configuration "Login"
+    let loginOptions =
+        readSection<LoginOptions> builder.Services builder.Configuration "Login"
 
-    Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidc
+    Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidcOptions
 
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
@@ -207,7 +209,7 @@ let main (args : string array) : int =
     |> ignore
 
     if builder.Environment.IsDevelopment () then
-        addOpenApiToBuilder builder oauth2
+        addOpenApiToBuilder builder oauthOptions
 
     let app = builder.Build ()
     let isDevelopment = app.Environment.IsDevelopment ()
@@ -216,9 +218,10 @@ let main (args : string array) : int =
     applyMigrations connectionString
 
     if isDevelopment then
-        addOpenApiToApp app
+        addOpenApiToApp app oauthOptions.ClientId
 
-    let loginReturnUrl = login.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
+    let loginReturnUrl =
+        loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString

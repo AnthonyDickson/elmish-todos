@@ -12,9 +12,8 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # Mirrors appsettings.Development.json 1:1 for testing and as an example.
-      # Override Login__*, Oidc__* and OAuth2__* for production — see docs/prod-oidc-setup.md.
       Login__ReturnUrl: "http://localhost:5173/"
+      OAuth2__ClientId: "scalar-docs"
       OAuth2__AuthorizationUrl: "https://127.0.0.1:9091/api/oidc/authorization"
       OAuth2__TokenUrl: "https://127.0.0.1:9091/api/oidc/token"
       Oidc__Authority: "https://127.0.0.1:9091"
