@@ -184,12 +184,17 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
 [<EntryPoint>]
 let main (args : string array) : int =
     let builder = WebApplication.CreateBuilder args
+    let isDevelopment = builder.Environment.IsDevelopment ()
 
     let oidcOptions =
         readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
 
     let oauthOptions =
-        readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+        if isDevelopment then
+            readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+            |> Some
+        else
+            None
 
     let loginOptions =
         readSection<LoginOptions> builder.Services builder.Configuration "Login"
@@ -208,8 +213,8 @@ let main (args : string array) : int =
     builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
-    if builder.Environment.IsDevelopment () then
-        addOpenApiToBuilder builder oauthOptions
+    oauthOptions
+    |> Option.iter (fun oauthOptions -> addOpenApiToBuilder builder oauthOptions)
 
     let app = builder.Build ()
     let isDevelopment = app.Environment.IsDevelopment ()
@@ -217,8 +222,8 @@ let main (args : string array) : int =
     let connectionString = app.Configuration.GetConnectionString "Default"
     applyMigrations connectionString
 
-    if isDevelopment then
-        addOpenApiToApp app oauthOptions.ClientId
+    oauthOptions
+    |> Option.iter (fun oauthOptions -> addOpenApiToApp app oauthOptions.ClientId)
 
     let loginReturnUrl =
         loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"

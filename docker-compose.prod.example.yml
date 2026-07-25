@@ -13,9 +13,6 @@ services:
       - "5000:5000"
     environment:
       Login__ReturnUrl: "http://localhost:5173/"
-      OAuth2__ClientId: "scalar-docs"
-      OAuth2__AuthorizationUrl: "https://127.0.0.1:9091/api/oidc/authorization"
-      OAuth2__TokenUrl: "https://127.0.0.1:9091/api/oidc/token"
       Oidc__Authority: "https://127.0.0.1:9091"
       Oidc__ClientId: "lustre-todos"
       Oidc__ClientSecret: "elmish-todos-dev-secret"
