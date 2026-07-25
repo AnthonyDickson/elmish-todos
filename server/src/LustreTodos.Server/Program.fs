@@ -7,6 +7,7 @@ open System.Threading.Tasks
 
 open DbUp
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Data.Sqlite
@@ -196,6 +197,9 @@ let main (args : string array) : int =
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
     builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
+    |> ignore
+
+    builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
     if builder.Environment.IsDevelopment () then
