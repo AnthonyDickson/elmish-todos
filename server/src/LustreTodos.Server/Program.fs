@@ -182,10 +182,14 @@ let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
                 $"  - {names}: {r.ErrorMessage}")
             |> String.concat "\n"
 
-        failwithf
-            "Configuration validation failed for section '%s':\n%s\n\nEnsure the required settings are present in appsettings or environment variables."
-            sectionName
-            messages
+        failwith (
+            String.concat "\n" [
+                $"Configuration validation failed for section '{sectionName}':"
+                messages
+                ""
+                "Ensure the required settings are present in appsettings or environment variables."
+            ]
+        )
 
     services.AddOptions<'T>().Bind(section).ValidateDataAnnotations().ValidateOnStart ()
     |> ignore

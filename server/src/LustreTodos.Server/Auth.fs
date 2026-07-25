@@ -17,7 +17,6 @@ open LustreTodos.Server.Coders
 
 [<RequireQualifiedAccess>]
 module Auth =
-    [<Literal>]
     let private policyName = "authenticated"
 
     let private polAuthScheme = "polAuth"

@@ -124,7 +124,7 @@ module Store =
             let! _ =
                 deleteTask store.Db {
                     for t in main.Todos do
-                        where (t.Completed = true)
+                        where t.Completed
                 }
 
             return ()
