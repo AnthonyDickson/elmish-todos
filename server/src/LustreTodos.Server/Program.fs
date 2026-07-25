@@ -2,6 +2,7 @@ module LustreTodos.Server.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
+open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
 
@@ -116,6 +117,26 @@ let private applyMigrations (connectionString : string) =
     fkCmd.CommandText <- "PRAGMA foreign_keys = ON"
     fkCmd.ExecuteNonQuery () |> ignore
 
+let private requestDuration (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
+    let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
+
+    RequestDelegate (fun (ctx : HttpContext) ->
+        task {
+            let sw = Stopwatch.StartNew ()
+
+            try
+                return! next.Invoke ctx
+            finally
+                logger.LogInformation (
+                    "{Method} {Path} {StatusCode} {ElapsedMs}",
+                    ctx.Request.Method,
+                    ctx.Request.Path,
+                    ctx.Response.StatusCode,
+                    sw.ElapsedMilliseconds
+                )
+        }
+        :> Task)
+
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
     let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
 
@@ -213,6 +234,11 @@ let main (args : string array) : int =
     builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
+    if not isDevelopment then
+        builder.Logging.AddJsonConsole (fun opts ->
+            opts.JsonWriterOptions <- System.Text.Json.JsonWriterOptions (Indented = false))
+        |> ignore
+
     oauthOptions
     |> Option.iter (fun oauthOptions -> addOpenApiToBuilder builder oauthOptions)
 
@@ -234,6 +260,9 @@ let main (args : string array) : int =
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
+    |> ignore
+
+    app.Use (requestDuration (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
     app.UseForwardedHeaders () |> ignore
