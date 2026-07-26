@@ -21,6 +21,9 @@ RUN cd server && dotnet tool restore
 COPY server/Directory.Build.props server/Directory.Packages.props server/
 COPY server/LustreTodos.slnx server/
 COPY server/src/LustreTodos.Server/LustreTodos.Server.fsproj server/src/LustreTodos.Server/
+# The test fsproj file needs to be included due to the solution file referencing
+# it despite it not being needed for the built binary.
+COPY server/tests/LustreTodos.Server.Tests/LustreTodos.Server.Tests.fsproj server/tests/LustreTodos.Server.Tests/
 RUN cd server && dotnet restore
 
 # Install client dependencies

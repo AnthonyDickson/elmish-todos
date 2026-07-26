@@ -1,6 +1,6 @@
 # Deployment
 
-## Publishing
+## Publishing via Binary
 
 ```bash
 make publish                    # linux-x64 (default)
@@ -11,18 +11,28 @@ Builds the client Vite bundle, copies it into `server/src/LustreTodos.Server/www
 then publishes the server as a self-contained single-file binary with trimming.
 Output: `server/src/LustreTodos.Server/bin/Release/publish/`
 
-## Docker
+## Publishing via Docker
 
 ### Building
 
 ```bash
+# Build
 docker build -t ghcr.io/your-org/lustre-todos:latest .
+# Login, e.g. with a GitHub Personal Access Token with the `write:packages` permissions
+cat $MY_PAT | docker login ghcr.io -u $(gh api user --jq .login) --password-stdin
+# Push
 docker push ghcr.io/your-org/lustre-todos:latest
 ```
 
 The multi-stage `Dockerfile` installs Node.js and Gleam, builds the client, then
 publishes the server into a `debian:stable-slim` runtime image with only `ca-certificates`,
 `curl`, and `libicu` installed.
+
+> [!note] Publishing from the CLI
+> When publishing from the CLI, you will need to manually set the "package" (image) to publish and then assign the
+> package to your repo. See the page on [Working with the Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+> and [Connecting a repository to a package](https://docs.github.com/en/packages/learn-github-packages/connecting-a-repository-to-a-package)
+> Building and pushing the image from a GitHub Workflow will automatically associate the package with the source repo.
 
 ### Deploying
 
