@@ -79,7 +79,7 @@ call `update` with a `Model` and `Msg`, then assert the returned `Model` and
 inspect the `Effect` payload.
 
 ```bash
-make client-test
+just client-test
 ```
 
 ## When to add a page

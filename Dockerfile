@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 RUN apt-get update \
-    && apt-get install -y ca-certificates curl gnupg make \
+    && apt-get install -y ca-certificates curl gnupg just \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
@@ -31,11 +31,11 @@ COPY client/package*.json client/
 RUN npm ci --prefix client
 
 # Copy everything and publish
-COPY ./Makefile ./
+COPY ./justfile ./
 COPY ./server ./server
 COPY ./client ./client
 ARG RUNTIME=linux-x64
-RUN make publish RUNTIME=${RUNTIME} PUBLISH_DIR=/publish
+RUN RUNTIME=${RUNTIME} PUBLISH_DIR=/publish just publish
 
 FROM debian:stable-slim AS runtime
 

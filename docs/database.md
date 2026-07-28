@@ -8,11 +8,11 @@ absolute path like `/data/todos.db`.
 ## Commands
 
 ```bash
-make db-migration name=add_foo   # Scaffold a numbered .sql file
-make db-migrate                   # Apply pending migrations (standalone script)
-make db-generate                  # Regenerate Db.fs from live DB (SqlHydra)
-make db-update                    # migrate + generate
-make db-reset                     # Delete DB, re-apply all, regenerate
+just db-migration name=add_foo   # Scaffold a numbered .sql file
+just db-migrate                   # Apply pending migrations (standalone script)
+just db-generate                  # Regenerate Db.fs from live DB (SqlHydra)
+just db-update                    # migrate + generate
+just db-reset                     # Delete DB, re-apply all, regenerate
 ```
 
 ## Migration Workflows
@@ -22,8 +22,8 @@ make db-reset                     # Delete DB, re-apply all, regenerate
 No code-gen needed — `Db.fs` is committed. Just build and run:
 
 ```bash
-make server-build    # Db.fs compiles immediately
-make server-watch   # DbUp creates todos.db + applies migrations at startup
+just server-build    # Db.fs compiles immediately
+just server-watch   # DbUp creates todos.db + applies migrations at startup
 ```
 
 ### Changing the schema
@@ -31,17 +31,17 @@ make server-watch   # DbUp creates todos.db + applies migrations at startup
 Add a migration, apply it, regenerate types, fix compile errors:
 
 ```bash
-make db-migration name=add_priority
+just db-migration name=add_priority
 # … write the SQL (CREATE TABLE, ALTER TABLE, etc.) …
-make db-update
+just db-update
 # … fix compile errors in Todos.fs (mapping layer between DB and API types) …
-make server-build
+just server-build
 ```
 
 ### Starting fresh
 
 ```bash
-make db-reset
+just db-reset
 ```
 
 Deletes `todos.db`, re-applies all migrations in order, regenerates `Db.fs`.
@@ -79,7 +79,7 @@ declarations, and `QueryContextFactory`. Committed to source control.
 ### `scripts/migrate.fsx`
 
 Standalone DbUp migration runner that reads SQL files directly from disk. Used
-by `make db-migrate` to apply migrations without building the server.
+by `just db-migrate` to apply migrations without building the server.
 
 ### Error Handling
 

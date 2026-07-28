@@ -17,7 +17,7 @@
               dotnet-sdk_10
               nodejs_24
               gleam
-              gnumake
+              just
               dprint
             ];
 

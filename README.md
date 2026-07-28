@@ -28,15 +28,15 @@ Open `http://localhost:5173` and log in with `dev` / `dev-password`.
 Or natively:
 
 ```bash
-make server-build    # Build the server
-make server-watch    # Run at :5000 (auto-creates SQLite DB + applies migrations)
+just server-build    # Build the server
+just server-watch    # Run at :5000 (auto-creates SQLite DB + applies migrations)
 
 # In a second terminal:
-make client-install-deps # First time only
-make client-watch        # Vite dev server at :5173
+just client-install-deps # First time only
+just client-watch        # Vite dev server at :5173
 ```
 
-See the [Makefile](Makefile) for all targets.
+See the [Justfile](./justfile) for all targets.
 
 ## How It Works
 
@@ -51,7 +51,7 @@ See the [Makefile](Makefile) for all targets.
   `dev`/`dev-password`). See [Production OIDC Setup](docs/prod-oidc-setup.md).
 - **Testing** — xUnit server tests, gleeunit client unit tests, Playwright E2E
   tests via Docker Compose. See `docs/server-tests.md`, `docs/client-architecture.md#client-tests`, and `docs/e2e-tests.md`.
-- **Deployment** — Single-file publish (`make publish`) or Docker
+- **Deployment** — Single-file publish (`just publish`) or Docker
   (`docker build` + `docker compose -f docker-compose.prod.yml up -d`).
   Intended to be hosted behind a reverse proxy.
   See [Deployment](docs/deployment.md).

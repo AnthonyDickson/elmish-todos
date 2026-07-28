@@ -4,7 +4,7 @@ Playwright tests running the full stack in Docker Compose with host networking
 (Authelia → .NET server → Vite client → Playwright).
 
 ```bash
-make e2e-test
+just e2e-test
 ```
 
 ## Setup

@@ -3,8 +3,8 @@
 ## Publishing via Binary
 
 ```bash
-make publish                    # linux-x64 (default)
-make publish RUNTIME=osx-arm64  # macOS Apple Silicon
+just publish                    # linux-x64 (default)
+RUNTIME=osx-arm64 just publish  # macOS Apple Silicon
 ```
 
 Builds the client Vite bundle, copies it into `server/src/LustreTodos.Server/wwwroot/`,
@@ -73,7 +73,7 @@ which is ephemeral.
 
 **Client assets** (images, fonts, favicons — anything the SPA references) live in
 `client/public/`. Vite serves them at root in dev and copies them into `dist/`
-on build. They reach the server via `make copy-client-dist`.
+on build. They reach the server via `just copy-client-dist`.
 
 **Server-only assets** (e.g. `robots.txt`) live in `server/src/LustreTodos.Server/wwwroot/`.
 The `wwwroot/` directory is gitignored and populated by `copy-client-dist` during
@@ -83,4 +83,4 @@ publish. Persistent server assets should have their source of truth elsewhere
 ## Hosting
 
 The web server is intended to run behind a reverse proxy such as nginx or Caddy.
-No effort is made to make the web server secure to deploy on its own.
+No effort is made to just the web server secure to deploy on its own.
