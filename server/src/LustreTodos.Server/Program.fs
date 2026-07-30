@@ -150,7 +150,7 @@ let configureSerilog (loggingOptions : LoggingOptions) (ctx : HostBuilderContext
     |> ignore
 
     match filePath with
-    | Some path -> config.WriteTo.File path |> ignore
+    | Some path -> config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
     | None -> ()
 
 let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
