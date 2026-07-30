@@ -33,3 +33,6 @@ type OAuth2Options = {
 
 [<CLIMutable>]
 type LoginOptions = { ReturnUrl : string }
+
+[<CLIMutable>]
+type LoggingOptions = { FilePath : string }

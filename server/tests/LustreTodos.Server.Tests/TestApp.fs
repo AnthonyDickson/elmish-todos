@@ -2,13 +2,16 @@ namespace LustreTodos.Server.Tests
 
 open System
 open System.IO
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.TestHost
 open Microsoft.Data.Sqlite
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
+open Microsoft.AspNetCore.Http
 open Oxpecker
+open LustreTodos.Server.RequestLogging
 open LustreTodos.Server.Todos
 open LustreTodos.Server.Todos.Store
 
@@ -39,7 +42,16 @@ type TestApp () =
                     webHostBuilder
                         .UseTestServer()
                         .ConfigureServices(fun services -> services.AddRouting().AddOxpecker () |> ignore)
-                        .Configure (fun app -> app.UseRouting().UseOxpecker (endpoints) |> ignore)
+                        .Configure (fun app ->
+                            app.Use (fun (ctx : HttpContext) (next : Func<Task>) ->
+                                task {
+                                    ctx.Items[RequestLog.Key] <- RequestLog ()
+                                    return! next.Invoke ()
+                                }
+                                :> Task)
+                            |> ignore
+
+                            app.UseRouting().UseOxpecker endpoints |> ignore)
                     |> ignore)
                 .Build ()
 

@@ -99,6 +99,7 @@ pub fn update_todo_action_failed_non_401_rolls_back_test() {
           error: "Server Error",
           details: "Something went wrong",
           status_code: Some(500),
+          request_id: None,
         ),
       ),
     )
@@ -201,6 +202,7 @@ pub fn update_todo_action_failed_delete_rolls_back_in_order_test() {
           error: "Server Error",
           details: "Something went wrong",
           status_code: Some(500),
+          request_id: None,
         ),
       ),
     )
@@ -235,6 +237,7 @@ pub fn update_todo_action_failed_401_redirects_test() {
           error: "Unauthorized",
           details: "",
           status_code: Some(401),
+          request_id: None,
         ),
       ),
     )

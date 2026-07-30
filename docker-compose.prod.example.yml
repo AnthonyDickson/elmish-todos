@@ -18,8 +18,10 @@ services:
       Oidc__ClientSecret: "elmish-todos-dev-secret"
       Oidc__CallbackPath: "/signin-oidc"
       ConnectionStrings__Default: "Data Source=/data/todos.db"
+      Logging__FilePath: "/logs/app.log"
     volumes:
       - todos-data:/data
+      - ./logs:/logs
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/localhost/5000"]
       interval: 30s

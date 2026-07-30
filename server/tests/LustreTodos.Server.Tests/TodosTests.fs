@@ -40,7 +40,7 @@ type TodosTests (fixture : TestApp) =
             fixture.CleanDatabase ()
 
             // When getting all todos
-            let! response = client.GetAsync ("/api/todos")
+            let! response = client.GetAsync "/api/todos"
 
             // Then the response is 200 OK with an empty list
             Assert.Equal (HttpStatusCode.OK, response.StatusCode)
@@ -58,7 +58,7 @@ type TodosTests (fixture : TestApp) =
             let! _ = postJson "/api/todos" expected
 
             // When getting all todos
-            let! response = client.GetAsync ("/api/todos")
+            let! response = client.GetAsync "/api/todos"
 
             // Then the response is 200 OK with the matching todo
             Assert.Equal (HttpStatusCode.OK, response.StatusCode)
@@ -81,7 +81,7 @@ type TodosTests (fixture : TestApp) =
             let! _ = postJson "/api/todos" expected
 
             // When getting the todo by its ID
-            let! response = client.GetAsync ($"/api/todos/{expected.Id}")
+            let! response = client.GetAsync $"/api/todos/{expected.Id}"
 
             // Then the response is 200 OK with the matching todo
             Assert.Equal (HttpStatusCode.OK, response.StatusCode)
@@ -102,7 +102,7 @@ type TodosTests (fixture : TestApp) =
             fixture.CleanDatabase ()
 
             // When getting a todo by a non-existent ID
-            let! response = client.GetAsync ($"/api/todos/{Guid.NewGuid ()}")
+            let! response = client.GetAsync $"/api/todos/{Guid.NewGuid ()}"
 
             // Then the response is 404 Not Found
             Assert.Equal (HttpStatusCode.NotFound, response.StatusCode)
@@ -165,11 +165,11 @@ type TodosTests (fixture : TestApp) =
             let! _ = postJson "/api/todos" item
 
             // When deleting the todo by its ID
-            let! deleteResponse = client.DeleteAsync ($"/api/todos/{item.Id}")
+            let! deleteResponse = client.DeleteAsync $"/api/todos/{item.Id}"
 
             // Then the delete returns 204 No Content and the todo is gone
             Assert.Equal (HttpStatusCode.NoContent, deleteResponse.StatusCode)
-            let! getResponse = client.GetAsync ($"/api/todos/{item.Id}")
+            let! getResponse = client.GetAsync $"/api/todos/{item.Id}"
             Assert.Equal (HttpStatusCode.NotFound, getResponse.StatusCode)
         }
 
@@ -184,11 +184,11 @@ type TodosTests (fixture : TestApp) =
             let! _ = postJson "/api/todos" active
 
             // When deleting all completed todos
-            let! deleteResponse = client.DeleteAsync ("/api/todos/completed")
+            let! deleteResponse = client.DeleteAsync "/api/todos/completed"
 
             // Then only the completed todo is removed and the active one remains
             Assert.Equal (HttpStatusCode.NoContent, deleteResponse.StatusCode)
-            let! response = client.GetAsync ("/api/todos")
+            let! response = client.GetAsync "/api/todos"
             let! body = response.Content.ReadAsStringAsync ()
 
             match Decode.fromString<Todo list> body with

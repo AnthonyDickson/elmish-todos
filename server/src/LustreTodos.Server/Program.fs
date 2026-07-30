@@ -2,7 +2,6 @@ module LustreTodos.Server.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
-open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
 
@@ -20,6 +19,8 @@ open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
+open Serilog
+open Serilog.Formatting.Compact
 
 open LustreTodos.Server.ApiError
 open LustreTodos.Server.Auth
@@ -117,26 +118,6 @@ let private applyMigrations (connectionString : string) =
     fkCmd.CommandText <- "PRAGMA foreign_keys = ON"
     fkCmd.ExecuteNonQuery () |> ignore
 
-let private requestDuration (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
-    let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
-
-    RequestDelegate (fun (ctx : HttpContext) ->
-        task {
-            let sw = Stopwatch.StartNew ()
-
-            try
-                return! next.Invoke ctx
-            finally
-                logger.LogInformation (
-                    "{Method} {Path} {StatusCode} {ElapsedMs}",
-                    ctx.Request.Method,
-                    ctx.Request.Path,
-                    ctx.Response.StatusCode,
-                    sw.ElapsedMilliseconds
-                )
-        }
-        :> Task)
-
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
     let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
 
@@ -154,9 +135,23 @@ let private handleException (loggerFactory : ILoggerFactory) (next : RequestDele
                         Error = "Internal Server Error"
                         Details = "An unexpected error occurred"
                         StatusCode = Some 500
+                        RequestId = ctx.TraceIdentifier
                     }
         }
         :> Task)
+
+let configureSerilog (loggingOptions : LoggingOptions) (ctx : HostBuilderContext) (config : LoggerConfiguration) =
+    let filePath =
+        loggingOptions.FilePath
+        |> Option.ofObj
+        |> Option.filter (not << System.String.IsNullOrWhiteSpace)
+
+    config.MinimumLevel.Information().WriteTo.Console (RenderedCompactJsonFormatter ())
+    |> ignore
+
+    match filePath with
+    | Some path -> config.WriteTo.File path |> ignore
+    | None -> ()
 
 let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
     (services : IServiceCollection)
@@ -224,6 +219,9 @@ let main (args : string array) : int =
     let loginOptions =
         readSection<LoginOptions> builder.Services builder.Configuration "Login"
 
+    let loggingOptions =
+        readSection<LoggingOptions> builder.Services builder.Configuration "Logging"
+
     Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidcOptions
 
     builder.Services.AddRouting().AddOxpecker () |> ignore
@@ -238,10 +236,7 @@ let main (args : string array) : int =
     builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
-    if not isDevelopment then
-        builder.Logging.AddJsonConsole (fun opts ->
-            opts.JsonWriterOptions <- System.Text.Json.JsonWriterOptions (Indented = false))
-        |> ignore
+    builder.Host.UseSerilog (configureSerilog loggingOptions) |> ignore
 
     oauthOptions
     |> Option.iter (fun oauthOptions -> addOpenApiToBuilder builder oauthOptions)
@@ -266,7 +261,12 @@ let main (args : string array) : int =
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
-    app.Use (requestDuration (app.Services.GetRequiredService<ILoggerFactory> ()))
+    app.Use (
+        RequestLogging.Middleware.requestLogging (
+            (app.Services.GetRequiredService<Serilog.ILogger> ())
+                .ForContext ("SourceContext", "LustreTodos.Server.Request")
+        )
+    )
     |> ignore
 
     app.UseForwardedHeaders () |> ignore

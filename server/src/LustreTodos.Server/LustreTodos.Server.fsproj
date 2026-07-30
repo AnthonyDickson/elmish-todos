@@ -12,12 +12,15 @@
 
   <ItemGroup>
     <Compile Include="ApiError.fs" />
+    <Compile Include="DomainError.fs" />
+    <Compile Include="RequestLogging.fs" />
     <Compile Include="Coders.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Auth.fs" />
     <Compile Include="OpenApi.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="Db.fs" />
+    <Compile Include="Endpoint.fs" />
     <Compile Include="Todos.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -27,12 +30,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FsToolkit.ErrorHandling" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Oxpecker" />
     <PackageReference Include="Oxpecker.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Thoth.Json.Net" />
     <PackageReference Include="dbup-sqlite" />
     <PackageReference Include="Microsoft.Data.Sqlite" />

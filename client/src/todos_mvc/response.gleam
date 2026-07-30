@@ -39,6 +39,7 @@ pub fn decode_success(
         error: "Decode error",
         details: format_decode_error(err),
         status_code: option.None,
+        request_id: option.None,
       ))
   }
 }
@@ -58,6 +59,7 @@ pub fn http_error_to_api_error(err: HttpError) -> api_error.ApiError {
             error: "Unexpected response",
             details: format_decode_error(err),
             status_code: option.Some(status),
+            request_id: option.None,
           )
       }
     NetworkError(msg) ->
@@ -65,6 +67,7 @@ pub fn http_error_to_api_error(err: HttpError) -> api_error.ApiError {
         error: "Network error",
         details: msg,
         status_code: option.None,
+        request_id: option.None,
       )
   }
 }

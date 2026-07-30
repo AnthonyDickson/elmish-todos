@@ -3,6 +3,7 @@ namespace LustreTodos.Server.Json
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
+open LustreTodos.Server
 open LustreTodos.Server.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
@@ -17,5 +18,5 @@ module Json =
         task {
             use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
             let! body = reader.ReadToEndAsync ()
-            return Decode.fromString body
+            return Decode.fromString body |> Result.mapError ValidationFailed
         }

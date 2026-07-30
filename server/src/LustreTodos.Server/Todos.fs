@@ -2,7 +2,7 @@ namespace LustreTodos.Server.Todos
 
 open System
 
-/// <summary>A todo item stored in the in-memory todo list.</summary>
+/// <summary>A todo item stored in the database.</summary>
 type Todo = {
     /// <summary>Unique identifier for the todo item.</summary>
     Id : Guid
@@ -21,6 +21,7 @@ type Todo = {
 type UpdateTodoRequest = { Title : string; Completed : bool }
 
 module Store =
+    open LustreTodos.Server
     open LustreTodos.Server.Db
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
@@ -51,114 +52,136 @@ module Store =
 
     let getAll (store : Store) =
         task {
-            let! rows =
-                selectTask store.Db {
-                    for t in main.Todos do
-                        select t
-                }
+            try
+                let! rows =
+                    selectTask store.Db {
+                        for t in main.Todos do
+                            select t
+                    }
 
-            return rows |> List.ofSeq |> List.map toTodo
+                let todos = rows |> List.ofSeq |> List.map toTodo
+
+                return Ok todos
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let get (store : Store) (id : Guid) =
         task {
-            let! result =
-                selectTask store.Db {
-                    for t in main.Todos do
-                        where (t.Id = id)
-                        tryHead
-                }
+            try
+                let! result =
+                    selectTask store.Db {
+                        for t in main.Todos do
+                            where (t.Id = id)
+                            tryHead
+                    }
 
-            return result |> Option.map toTodo
+                let todo = result |> Option.map toTodo
+
+                return Ok todo
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let upsert (store : Store) (todo : Todo) =
         task {
-            let! _ =
-                insertTask store.Db {
-                    for t in main.Todos do
-                        entity (toRow todo)
-                        onConflictDoUpdate t.Id (t.Title, t.Completed)
-                }
+            try
+                let! _ =
+                    insertTask store.Db {
+                        for t in main.Todos do
+                            entity (toRow todo)
+                            onConflictDoUpdate t.Id (t.Title, t.Completed)
+                    }
 
-            return ()
+                return Ok ()
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let update (store : Store) (id : Guid) (title : string) (completed : bool) =
         task {
-            use! shared = store.Db.OpenContextAsync ()
-            shared.BeginTransaction ()
+            try
+                use! shared = store.Db.OpenContextAsync ()
+                shared.BeginTransaction ()
 
-            let! _rowsAffected =
-                updateTask shared {
-                    for t in main.Todos do
-                        set t.Title title
-                        set t.Completed completed
-                        where (t.Id = id)
-                }
+                let! _rowsAffected =
+                    updateTask shared {
+                        for t in main.Todos do
+                            set t.Title title
+                            set t.Completed completed
+                            where (t.Id = id)
+                    }
 
-            let! result =
-                selectTask shared {
-                    for t in main.Todos do
-                        where (t.Id = id)
-                        tryHead
-                }
+                let! result =
+                    selectTask shared {
+                        for t in main.Todos do
+                            where (t.Id = id)
+                            tryHead
+                    }
 
-            shared.CommitTransaction ()
-            return result |> Option.map toTodo
+                shared.CommitTransaction ()
+
+                let todo = result |> Option.map toTodo
+
+                return Ok todo
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let delete (store : Store) (id : Guid) =
         task {
-            let! rows =
-                deleteTask store.Db {
-                    for t in main.Todos do
-                        where (t.Id = id)
-                }
+            try
+                let! rows =
+                    deleteTask store.Db {
+                        for t in main.Todos do
+                            where (t.Id = id)
+                    }
 
-            return rows > 0
+                let deleted = rows > 0
+
+                return Ok deleted
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let deleteCompleted (store : Store) =
         task {
-            let! _ =
-                deleteTask store.Db {
-                    for t in main.Todos do
-                        where t.Completed
-                }
+            try
+                let! rowsAffected =
+                    deleteTask store.Db {
+                        for t in main.Todos do
+                            where t.Completed
+                    }
 
-            return ()
+                return Ok rowsAffected
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
         }
 
 module Api =
     open System.Threading.Tasks
 
+    open FsToolkit.ErrorHandling
     open Oxpecker
     open Oxpecker.OpenApi
 
+    open LustreTodos.Server
     open LustreTodos.Server.Json
     open LustreTodos.Server.ApiError
+    open LustreTodos.Server.RequestLogging
     open Store
-
-    module private Helpers =
-        let notFound (msg : string) : EndpointHandler =
-            fun ctx ->
-                ctx.SetStatusCode 404
-
-                Json.write ctx {
-                    Error = "Not Found"
-                    Details = msg
-                    StatusCode = Some 404
-                }
 
     module GetAll =
         /// GET /todos — list all items
         let handler (store : Store) : EndpointHandler =
-            fun ctx ->
-                task {
+            Endpoint.handler (fun ctx ->
+                taskResult {
                     let! items = Store.getAll store
-                    return! Json.write ctx items
-                }
+                    let log = RequestLog.fromContext ctx
+
+                    log.Info ($"Returned %i{List.length items} todos", LogProp.prop "count" (List.length items))
+                    do! Json.write ctx items
+                })
 
         let endpoint (store : Store) =
             route "/api/todos" (handler store)
@@ -179,14 +202,19 @@ module Api =
     module Get =
         /// GET /todos/{id} — get one item
         let handler (store : Store) (id : Guid) : EndpointHandler =
-            fun ctx ->
-                task {
+            Endpoint.handler (fun ctx ->
+                taskResult {
                     let! todo = Store.get store id
+                    let log = RequestLog.fromContext ctx
 
                     match todo with
-                    | Some item -> return! Json.write ctx item
-                    | None -> return! Helpers.notFound $"Todo {id} not found" ctx
-                }
+                    | Some item ->
+                        log.Info ($"Returned todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
+                        do! Json.write ctx item
+                    | None ->
+                        log.Warn ($"Todo %O{id} not found", LogProp.prop "todoId" (id.ToString ()))
+                        return! Error (NotFound $"Todo %O{id} not found")
+                })
 
         let endpoint (store : Store) =
             routef "/api/todos/{%O:guid}" (handler store)
@@ -208,35 +236,19 @@ module Api =
     module Create =
         /// POST /todos — create an item
         let handler (store : Store) : EndpointHandler =
-            fun ctx ->
-                task {
-                    let! (result : Result<Todo, string>) = Json.read ctx
+            Endpoint.handler (fun ctx ->
+                taskResult {
+                    let log = RequestLog.fromContext ctx
+                    let! (todo : Todo) = Json.read ctx
 
-                    match result with
-                    | Ok todo ->
-                        if String.IsNullOrWhiteSpace todo.Title then
-                            ctx.SetStatusCode 400
-
-                            return!
-                                Json.write ctx {
-                                    Error = "Validation Error"
-                                    Details = "Title is required"
-                                    StatusCode = Some 400
-                                }
-                        else
-                            do! Store.upsert store todo
-                            ctx.SetStatusCode 201
-                            return! Json.write ctx todo
-                    | Error err ->
-                        ctx.SetStatusCode 400
-
-                        return!
-                            Json.write ctx {
-                                Error = "Validation Error"
-                                Details = err
-                                StatusCode = Some 400
-                            }
-                }
+                    if String.IsNullOrWhiteSpace todo.Title then
+                        return! Error (ValidationFailed "Title is required")
+                    else
+                        let! () = Store.upsert store todo
+                        log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
+                        ctx.SetStatusCode 201
+                        do! Json.write ctx todo
+                })
 
         let endpoint (store : Store) =
             route "/api/todos" (handler store)
@@ -259,37 +271,24 @@ module Api =
     module Update =
         /// PUT /todos/{id} — replace an item
         let handler (store : Store) (id : Guid) : EndpointHandler =
-            fun ctx ->
-                task {
-                    let! (result : Result<UpdateTodoRequest, string>) = Json.read ctx
+            Endpoint.handler (fun ctx ->
+                taskResult {
+                    let log = RequestLog.fromContext ctx
+                    let! (req : UpdateTodoRequest) = Json.read ctx
 
-                    match result with
-                    | Ok req ->
-                        if String.IsNullOrWhiteSpace req.Title then
-                            ctx.SetStatusCode 400
+                    if String.IsNullOrWhiteSpace req.Title then
+                        return! Error (ValidationFailed "Title is required")
+                    else
+                        let! updated = Store.update store id (req.Title.Trim ()) req.Completed
 
-                            return!
-                                Json.write ctx {
-                                    Error = "Validation Error"
-                                    Details = "Title is required"
-                                    StatusCode = Some 400
-                                }
-                        else
-                            let! updated = Store.update store id (req.Title.Trim ()) req.Completed
-
-                            match updated with
-                            | Some updated -> return! Json.write ctx updated
-                            | None -> return! Helpers.notFound $"Todo {id} not found" ctx
-                    | Error err ->
-                        ctx.SetStatusCode 400
-
-                        return!
-                            Json.write ctx {
-                                Error = "Validation Error"
-                                Details = err
-                                StatusCode = Some 400
-                            }
-                }
+                        match updated with
+                        | Some updated ->
+                            log.Info ($"Updated todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
+                            do! Json.write ctx updated
+                        | None ->
+                            log.Warn ($"Todo %O{id} not found", LogProp.prop "todoId" (id.ToString ()))
+                            return! Error (NotFound $"Todo %O{id} not found")
+                })
 
         let endpoint (store : Store) =
             routef "/api/todos/{%O:guid}" (handler store)
@@ -313,16 +312,18 @@ module Api =
     module Delete =
         /// DELETE /todos/{id} — remove an item
         let handler (store : Store) (id : Guid) : EndpointHandler =
-            fun ctx ->
-                task {
+            Endpoint.handler (fun ctx ->
+                taskResult {
+                    let log = RequestLog.fromContext ctx
                     let! deleted = Store.delete store id
 
                     if deleted then
+                        log.Info ($"Deleted todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
                         ctx.SetStatusCode 204
-                        return ()
                     else
-                        return! Helpers.notFound $"Todo {id} not found" ctx
-                }
+                        log.Warn ($"Todo %O{id} not found", LogProp.prop "todoId" (id.ToString ()))
+                        return! Error (NotFound $"Todo %O{id} not found")
+                })
 
         let endpoint (store : Store) =
             routef "/api/todos/{%O:guid}" (handler store)
@@ -343,13 +344,14 @@ module Api =
 
     module DeleteCompleted =
         let handler (store : Store) : EndpointHandler =
-            fun ctx ->
-                task {
-                    do! Store.deleteCompleted store
+            Endpoint.handler (fun ctx ->
+                taskResult {
+                    let log = RequestLog.fromContext ctx
+                    let! rowsAffected = Store.deleteCompleted store
 
+                    log.Info ($"Deleted %i{rowsAffected} completed todos", LogProp.prop "count" rowsAffected)
                     ctx.SetStatusCode 204
-                    return ()
-                }
+                })
 
         let endpoint (store : Store) =
             route "/api/todos/completed" (handler store)

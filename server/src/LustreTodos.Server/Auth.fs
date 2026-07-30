@@ -50,6 +50,7 @@ module Auth =
                                 Error = "Unauthorized"
                                 Details = "Authentication required"
                                 StatusCode = Some 401
+                                RequestId = ctx.TraceIdentifier
                             }
                         )
             }
