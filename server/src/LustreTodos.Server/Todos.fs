@@ -162,6 +162,36 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
+module Validation =
+    open LustreTodos.Server.DomainError
+
+    [<Literal>]
+    let private MaxTodoTitleLength = 256
+
+    let private nonEmpty (title : string) =
+        if String.IsNullOrWhiteSpace title then
+            Error (ValidationFailed "Title cannot be null or just whitespace")
+        else
+            Ok title
+
+    let private acceptableLength (title : string) =
+        if title.Length > MaxTodoTitleLength then
+            Error (
+                ValidationFailed
+                    $"Title is too long. Titles must be at most \
+                    %i{MaxTodoTitleLength} characters, but got %i{title.Length}"
+            )
+        else
+            Ok title
+
+    /// <summary>Trim whitespace and then validate a Todo title. Returns the trimmed title.</summary>
+    let validateAndTrimTitle (title : string) =
+        title.Trim () |> nonEmpty |> Result.bind acceptableLength
+
+    let validate (todo : Todo) =
+        validateAndTrimTitle todo.Title
+        |> Result.map (fun trimmedTitle -> { todo with Title = trimmedTitle })
+
 module Api =
     open System.Threading.Tasks
 
@@ -244,16 +274,14 @@ module Api =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
-                    let! (todo : Todo) = Json.read ctx
                     let! userId = Auth.getUserId ctx
+                    let! (todo : Todo) = Json.read ctx
+                    let! todo = Validation.validate todo
 
-                    if String.IsNullOrWhiteSpace todo.Title then
-                        return! Error (ValidationFailed "Title is required")
-                    else
-                        let! () = Store.insert store todo userId
-                        log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
-                        ctx.SetStatusCode 201
-                        do! Json.write ctx todo
+                    let! () = Store.insert store todo userId
+                    log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
+                    ctx.SetStatusCode 201
+                    do! Json.write ctx todo
                 })
 
         let endpoint (store : Store) =
@@ -283,18 +311,16 @@ module Api =
                     let! (req : UpdateTodoRequest) = Json.read ctx
                     let! userId = Auth.getUserId ctx
 
-                    if String.IsNullOrWhiteSpace req.Title then
-                        return! Error (ValidationFailed "Title is required")
-                    else
-                        let! updated = Store.update store id userId (req.Title.Trim ()) req.Completed
+                    let! title = Validation.validateAndTrimTitle req.Title
+                    let! updated = Store.update store id userId title req.Completed
 
-                        match updated with
-                        | Some updated ->
-                            log.Info ($"Updated todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
-                            do! Json.write ctx updated
-                        | None ->
-                            log.Warn ($"Todo %O{id} not found", LogProp.prop "todoId" (id.ToString ()))
-                            return! Error (NotFound $"Todo %O{id} not found")
+                    match updated with
+                    | Some updated ->
+                        log.Info ($"Updated todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
+                        do! Json.write ctx updated
+                    | None ->
+                        log.Warn ($"Todo %O{id} not found", LogProp.prop "todoId" (id.ToString ()))
+                        return! Error (NotFound $"Todo %O{id} not found")
                 })
 
         let endpoint (store : Store) =
