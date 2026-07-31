@@ -145,33 +145,20 @@ module Middleware =
 
                     let logArray = entries |> List.map (entryToDict >> box) |> List.toArray
 
-                    match maxLevel with
-                    | LogLevel.Error ->
-                        logger.Error (
-                            "{Method} {Path} {StatusCode} {ElapsedMs} {@Log}",
-                            ctx.Request.Method,
-                            ctx.Request.Path.Value,
-                            ctx.Response.StatusCode,
-                            sw.ElapsedMilliseconds,
-                            logArray
-                        )
-                    | LogLevel.Warning ->
-                        logger.Warning (
-                            "{Method} {Path} {StatusCode} {ElapsedMs} {@Log}",
-                            ctx.Request.Method,
-                            ctx.Request.Path.Value,
-                            ctx.Response.StatusCode,
-                            sw.ElapsedMilliseconds,
-                            logArray
-                        )
-                    | _ ->
-                        logger.Information (
-                            "{Method} {Path} {StatusCode} {ElapsedMs} {@Log}",
-                            ctx.Request.Method,
-                            ctx.Request.Path.Value,
-                            ctx.Response.StatusCode,
-                            sw.ElapsedMilliseconds,
-                            logArray
-                        )
+                    let serilogLevel =
+                        match maxLevel with
+                        | LogLevel.Error -> Serilog.Events.LogEventLevel.Error
+                        | LogLevel.Warning -> Serilog.Events.LogEventLevel.Warning
+                        | LogLevel.Info -> Serilog.Events.LogEventLevel.Information
+
+                    logger.Write (
+                        serilogLevel,
+                        "{Method} {Path} {StatusCode} {ElapsedMs} {@Log}",
+                        ctx.Request.Method,
+                        ctx.Request.Path.Value,
+                        ctx.Response.StatusCode,
+                        sw.ElapsedMilliseconds,
+                        logArray
+                    )
             }
             :> Task)
