@@ -103,6 +103,8 @@ module Middleware =
     open System.Collections.Generic
     open System.Diagnostics
     open System.Threading.Tasks
+
+    open Microsoft.AspNetCore.Authentication
     open Serilog
     open Serilog.Context
 
@@ -123,11 +125,15 @@ module Middleware =
                 let sw = Stopwatch.StartNew ()
                 ctx.Items[RequestLog.Key] <- RequestLog ()
 
-                use _ = LogContext.PushProperty ("RequestId", ctx.TraceIdentifier)
-
                 try
                     return! next.Invoke ctx
                 finally
+                    let user =
+                        ctx.User.FindFirst "sub"
+                        |> Option.ofObj
+                        |> Option.map _.Value
+                        |> Option.defaultValue null
+
                     let log = RequestLog.fromContext ctx
                     let entries = log.Entries
 
@@ -153,11 +159,13 @@ module Middleware =
 
                     logger.Write (
                         serilogLevel,
-                        "{Method} {Path} {StatusCode} {ElapsedMs} {@Log}",
+                        "{Method} {Path} {StatusCode} {ElapsedMs} {RequestId} {UserId} {@Log}",
                         ctx.Request.Method,
                         ctx.Request.Path.Value,
                         ctx.Response.StatusCode,
                         sw.ElapsedMilliseconds,
+                        ctx.TraceIdentifier,
+                        user,
                         logArray
                     )
             }

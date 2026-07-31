@@ -261,6 +261,11 @@ let main (args : string array) : int =
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
+    app.UseForwardedHeaders () |> ignore
+    app.UseStaticFiles () |> ignore
+    app.UseRouting () |> ignore
+    app.UseAuthentication () |> ignore
+
     app.Use (
         RequestLogging.Middleware.requestLogging (
             (app.Services.GetRequiredService<Serilog.ILogger> ())
@@ -269,10 +274,6 @@ let main (args : string array) : int =
     )
     |> ignore
 
-    app.UseForwardedHeaders () |> ignore
-    app.UseStaticFiles () |> ignore
-    app.UseRouting () |> ignore
-    app.UseAuthentication () |> ignore
     app.UseAuthorization () |> ignore
     app.UseOxpecker allEndpoints |> ignore
 

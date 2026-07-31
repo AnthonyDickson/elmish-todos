@@ -1,9 +1,10 @@
-namespace LustreTodos.Server
+namespace LustreTodos.Server.Endpoint
 
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 
 open LustreTodos.Server.ApiError
+open LustreTodos.Server.DomainError
 open LustreTodos.Server.RequestLogging
 open LustreTodos.Server.Json
 
@@ -15,6 +16,7 @@ module Endpoint =
         match err with
         | ValidationFailed _ -> "ValidationFailed"
         | NotFound _ -> "NotFound"
+        | UserNotFound -> "UserNotFound"
         | DatabaseError _ -> "DatabaseError"
         | UnhandledException _ -> "UnhandledException"
 
@@ -49,6 +51,17 @@ module Endpoint =
                         Error = "Not Found"
                         Details = err
                         StatusCode = Some 404
+                        RequestId = ctx.TraceIdentifier
+                    }
+            | Error UserNotFound ->
+                log.Error "Got a request where the user claims were not defined"
+                ctx.Response.StatusCode <- 401
+
+                return!
+                    Json.write ctx {
+                        Error = "Unauthorized"
+                        Details = "Did not find claims in the request data"
+                        StatusCode = Some 401
                         RequestId = ctx.TraceIdentifier
                     }
             | Error (DatabaseError (msg, exOpt) | UnhandledException (msg, exOpt) as err) ->

@@ -2,6 +2,7 @@ namespace LustreTodos.Server.Tests
 
 open System
 open System.IO
+open System.Security.Claims
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
@@ -14,6 +15,13 @@ open Oxpecker
 open LustreTodos.Server.RequestLogging
 open LustreTodos.Server.Todos
 open LustreTodos.Server.Todos.Store
+
+module private TestClaims =
+    let userId = "test-user"
+
+    let principal =
+        let identity = ClaimsIdentity ([ Claim ("sub", userId) ], "test")
+        ClaimsPrincipal identity
 
 type TestApp () =
     let dbPath = Path.Combine (Path.GetTempPath (), $"test-todos-{Guid.NewGuid ()}.db")
@@ -46,6 +54,7 @@ type TestApp () =
                             app.Use (fun (ctx : HttpContext) (next : Func<Task>) ->
                                 task {
                                     ctx.Items[RequestLog.Key] <- RequestLog ()
+                                    ctx.User <- TestClaims.principal
                                     return! next.Invoke ()
                                 }
                                 :> Task)

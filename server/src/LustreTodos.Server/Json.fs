@@ -3,7 +3,7 @@ namespace LustreTodos.Server.Json
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
-open LustreTodos.Server
+open LustreTodos.Server.DomainError
 open LustreTodos.Server.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>

@@ -14,6 +14,7 @@ open Oxpecker
 open LustreTodos.Server.Config
 open LustreTodos.Server.ApiError
 open LustreTodos.Server.Coders
+open LustreTodos.Server.DomainError
 
 [<RequireQualifiedAccess>]
 module Auth =
@@ -102,6 +103,9 @@ module Auth =
                     options.ClientSecret <- oidc.ClientSecret
                     options.ResponseType <- "code"
                     options.CallbackPath <- oidc.CallbackPath
+                    // Set this to true to get the name and email from Authelia/your identity provider
+                    options.GetClaimsFromUserInfoEndpoint <- false
+                    options.MapInboundClaims <- false
                     options.SaveTokens <- true
 
                     options.Scope.Add "openid" |> ignore
@@ -121,6 +125,7 @@ module Auth =
                 bearerScheme,
                 fun options ->
                     options.Authority <- oidc.Authority
+                    options.MapInboundClaims <- false
                     options.RequireHttpsMetadata <- not isDevelopment
 
                     if isNull oidc.ValidAudiences || oidc.ValidAudiences.Length = 0 then
@@ -171,3 +176,10 @@ module Auth =
     let endpoints (loginReturnUrl : string) : Oxpecker.RoutingTypes.Endpoint seq = [
         GET [ route "/login" (loginHandler loginReturnUrl); route "/logout" logoutHandler ]
     ]
+
+    let getUserId (ctx : HttpContext) : Result<string, DomainError> =
+        let userId = ctx.User.FindFirst "sub" |> Option.ofObj |> Option.map _.Value
+
+        match userId with
+        | Some userId -> Ok userId
+        | None -> Error DomainError.UserNotFound

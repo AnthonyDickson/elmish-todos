@@ -22,6 +22,7 @@ module main =
     [<CLIMutable>]
     type Todos =
         { Id: System.Guid
+          UserId: string
           Title: string
           Completed: bool
           CreatedAt: int64 }

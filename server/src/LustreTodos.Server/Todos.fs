@@ -21,7 +21,7 @@ type Todo = {
 type UpdateTodoRequest = { Title : string; Completed : bool }
 
 module Store =
-    open LustreTodos.Server
+    open LustreTodos.Server.DomainError
     open LustreTodos.Server.Db
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
@@ -41,8 +41,9 @@ module Store =
         CreatedAt = DateTimeOffset.FromUnixTimeSeconds(row.CreatedAt).UtcDateTime
     }
 
-    let private toRow (todo : Todo) : main.Todos = {
+    let private toRow (todo : Todo) (userId : string) : main.Todos = {
         Id = todo.Id
+        UserId = userId
         Title = todo.Title
         Completed = todo.Completed
         CreatedAt = DateTimeOffset(todo.CreatedAt).ToUnixTimeSeconds ()
@@ -50,13 +51,14 @@ module Store =
 
     // ── Queries ────────────────────────────────────────────────────────────
 
-    let getAll (store : Store) =
+    let getAll (store : Store) (userId : string) =
         task {
             try
                 let! rows =
                     selectTask store.Db {
                         for t in main.Todos do
                             select t
+                            where (t.UserId = userId)
                     }
 
                 let todos = rows |> List.ofSeq |> List.map toTodo
@@ -66,13 +68,13 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let get (store : Store) (id : Guid) =
+    let get (store : Store) (id : Guid) (userId : string) =
         task {
             try
                 let! result =
                     selectTask store.Db {
                         for t in main.Todos do
-                            where (t.Id = id)
+                            where (t.Id = id && t.UserId = userId)
                             tryHead
                     }
 
@@ -83,13 +85,13 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let upsert (store : Store) (todo : Todo) =
+    let upsert (store : Store) (todo : Todo) (userId : string) =
         task {
             try
                 let! _ =
                     insertTask store.Db {
                         for t in main.Todos do
-                            entity (toRow todo)
+                            entity (toRow todo userId)
                             onConflictDoUpdate t.Id (t.Title, t.Completed)
                     }
 
@@ -98,7 +100,7 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let update (store : Store) (id : Guid) (title : string) (completed : bool) =
+    let update (store : Store) (id : Guid) (userId : string) (title : string) (completed : bool) =
         task {
             try
                 use! shared = store.Db.OpenContextAsync ()
@@ -109,13 +111,13 @@ module Store =
                         for t in main.Todos do
                             set t.Title title
                             set t.Completed completed
-                            where (t.Id = id)
+                            where (t.Id = id && t.UserId = userId)
                     }
 
                 let! result =
                     selectTask shared {
                         for t in main.Todos do
-                            where (t.Id = id)
+                            where (t.Id = id && t.UserId = userId)
                             tryHead
                     }
 
@@ -128,13 +130,13 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let delete (store : Store) (id : Guid) =
+    let delete (store : Store) (id : Guid) (userId : string) =
         task {
             try
                 let! rows =
                     deleteTask store.Db {
                         for t in main.Todos do
-                            where (t.Id = id)
+                            where (t.Id = id && t.UserId = userId)
                     }
 
                 let deleted = rows > 0
@@ -144,13 +146,13 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let deleteCompleted (store : Store) =
+    let deleteCompleted (store : Store) (userId : string) =
         task {
             try
                 let! rowsAffected =
                     deleteTask store.Db {
                         for t in main.Todos do
-                            where t.Completed
+                            where (t.Completed && t.UserId = userId)
                     }
 
                 return Ok rowsAffected
@@ -165,18 +167,20 @@ module Api =
     open Oxpecker
     open Oxpecker.OpenApi
 
-    open LustreTodos.Server
-    open LustreTodos.Server.Json
     open LustreTodos.Server.ApiError
+    open LustreTodos.Server.Auth
+    open LustreTodos.Server.DomainError
+    open LustreTodos.Server.Endpoint
+    open LustreTodos.Server.Json
     open LustreTodos.Server.RequestLogging
     open Store
 
     module GetAll =
-        /// GET /todos — list all items
-        let handler (store : Store) : EndpointHandler =
+        let private handler (store : Store) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
-                    let! items = Store.getAll store
+                    let! userId = Auth.getUserId ctx
+                    let! items = Store.getAll store userId
                     let log = RequestLog.fromContext ctx
 
                     log.Info ($"Returned %i{List.length items} todos", LogProp.prop "count" (List.length items))
@@ -200,11 +204,11 @@ module Api =
             )
 
     module Get =
-        /// GET /todos/{id} — get one item
-        let handler (store : Store) (id : Guid) : EndpointHandler =
+        let private handler (store : Store) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
-                    let! todo = Store.get store id
+                    let! userId = Auth.getUserId ctx
+                    let! todo = Store.get store id userId
                     let log = RequestLog.fromContext ctx
 
                     match todo with
@@ -234,17 +238,17 @@ module Api =
             )
 
     module Create =
-        /// POST /todos — create an item
-        let handler (store : Store) : EndpointHandler =
+        let private handler (store : Store) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! (todo : Todo) = Json.read ctx
+                    let! userId = Auth.getUserId ctx
 
                     if String.IsNullOrWhiteSpace todo.Title then
                         return! Error (ValidationFailed "Title is required")
                     else
-                        let! () = Store.upsert store todo
+                        let! () = Store.upsert store todo userId
                         log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
                         ctx.SetStatusCode 201
                         do! Json.write ctx todo
@@ -269,17 +273,17 @@ module Api =
             )
 
     module Update =
-        /// PUT /todos/{id} — replace an item
-        let handler (store : Store) (id : Guid) : EndpointHandler =
+        let private handler (store : Store) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! (req : UpdateTodoRequest) = Json.read ctx
+                    let! userId = Auth.getUserId ctx
 
                     if String.IsNullOrWhiteSpace req.Title then
                         return! Error (ValidationFailed "Title is required")
                     else
-                        let! updated = Store.update store id (req.Title.Trim ()) req.Completed
+                        let! updated = Store.update store id userId (req.Title.Trim ()) req.Completed
 
                         match updated with
                         | Some updated ->
@@ -310,12 +314,12 @@ module Api =
             )
 
     module Delete =
-        /// DELETE /todos/{id} — remove an item
-        let handler (store : Store) (id : Guid) : EndpointHandler =
+        let private handler (store : Store) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
-                    let! deleted = Store.delete store id
+                    let! userId = Auth.getUserId ctx
+                    let! deleted = Store.delete store id userId
 
                     if deleted then
                         log.Info ($"Deleted todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
@@ -343,11 +347,12 @@ module Api =
             )
 
     module DeleteCompleted =
-        let handler (store : Store) : EndpointHandler =
+        let private handler (store : Store) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
-                    let! rowsAffected = Store.deleteCompleted store
+                    let! userId = Auth.getUserId ctx
+                    let! rowsAffected = Store.deleteCompleted store userId
 
                     log.Info ($"Deleted %i{rowsAffected} completed todos", LogProp.prop "count" rowsAffected)
                     ctx.SetStatusCode 204
