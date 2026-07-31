@@ -71,7 +71,7 @@ module Endpoint =
                 return!
                     Json.write ctx {
                         Error = "Internal Server Error"
-                        Details = $"An unexpected error occurred: {msg} (request {ctx.TraceIdentifier})"
+                        Details = "An unexpected error occurred"
                         StatusCode = Some 500
                         RequestId = ctx.TraceIdentifier
                     }
