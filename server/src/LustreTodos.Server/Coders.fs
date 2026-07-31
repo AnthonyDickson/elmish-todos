@@ -30,4 +30,4 @@ module Encode =
 
     let inline toString<'T> (value : 'T) : string =
         let jsonValue = cachedEncoder<'T> value
-        Encode.toString 4 jsonValue
+        Encode.toString 0 jsonValue
