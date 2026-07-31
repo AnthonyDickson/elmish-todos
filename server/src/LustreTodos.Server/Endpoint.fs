@@ -16,6 +16,7 @@ module Endpoint =
         match err with
         | ValidationFailed _ -> "ValidationFailed"
         | NotFound _ -> "NotFound"
+        | Conflict _ -> "Conflict"
         | UserNotFound -> "UserNotFound"
         | DatabaseError _ -> "DatabaseError"
         | UnhandledException _ -> "UnhandledException"
@@ -51,6 +52,17 @@ module Endpoint =
                         Error = "Not Found"
                         Details = err
                         StatusCode = Some 404
+                        RequestId = ctx.TraceIdentifier
+                    }
+            | Error (Conflict err) ->
+                log.Warn ($"Conflict: {err}", LogProp.prop "errorType" "Conflict", LogProp.prop "error" err)
+                ctx.Response.StatusCode <- 409
+
+                return!
+                    Json.write ctx {
+                        Error = "Conflict"
+                        Details = err
+                        StatusCode = Some 409
                         RequestId = ctx.TraceIdentifier
                     }
             | Error UserNotFound ->

@@ -23,6 +23,7 @@ type UpdateTodoRequest = { Title : string; Completed : bool }
 module Store =
     open LustreTodos.Server.DomainError
     open LustreTodos.Server.Db
+    open Microsoft.Data.Sqlite
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
 
@@ -85,19 +86,20 @@ module Store =
                 return Error (DatabaseError (ex.Message, Some ex))
         }
 
-    let upsert (store : Store) (todo : Todo) (userId : string) =
+    let insert (store : Store) (todo : Todo) (userId : string) =
         task {
             try
                 let! _ =
                     insertTask store.Db {
                         for t in main.Todos do
                             entity (toRow todo userId)
-                            onConflictDoUpdate t.Id (t.Title, t.Completed)
                     }
 
                 return Ok ()
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            with
+            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
+                return Error (Conflict $"A todo with ID %O{todo.Id} already exists")
+            | ex -> return Error (DatabaseError (ex.Message, Some ex))
         }
 
     let update (store : Store) (id : Guid) (userId : string) (title : string) (completed : bool) =
@@ -248,7 +250,7 @@ module Api =
                     if String.IsNullOrWhiteSpace todo.Title then
                         return! Error (ValidationFailed "Title is required")
                     else
-                        let! () = Store.upsert store todo userId
+                        let! () = Store.insert store todo userId
                         log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
                         ctx.SetStatusCode 201
                         do! Json.write ctx todo
@@ -263,6 +265,7 @@ module Api =
                         ResponseBody (typeof<Todo>, statusCode = 201)
                         ResponseBody (typeof<ApiError>, statusCode = 400)
                         ResponseBody (typeof<ApiError>, statusCode = 401)
+                        ResponseBody (typeof<ApiError>, statusCode = 409)
                     |],
                     configureOperation =
                         fun op _ _ ->
