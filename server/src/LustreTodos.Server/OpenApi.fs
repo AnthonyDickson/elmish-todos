@@ -21,8 +21,8 @@ module OpenApi =
             false
 
     /// <summary>
-    // Marks non-option record fields as required and fixes string property type inference in OpenAPI schemas.
-    // </summary>
+    /// Marks non-option record fields as required and fixes string property type inference in OpenAPI schemas.
+    /// </summary>
     type FSharpRecordSchemaTransformer () =
         interface IOpenApiSchemaTransformer with
             member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
@@ -57,8 +57,8 @@ module OpenApi =
                 Task.CompletedTask
 
     /// <summary>
-    // Populates schema and property descriptions from F# XML doc comments (`summary` tags on types and record fields).
-    // </summary>
+    /// Populates schema and property descriptions from F# XML doc comments (`summary` tags on types and record fields).
+    /// </summary>
     type XmlDocSchemaTransformer () =
         let loadedDocs = ConcurrentDictionary<string, Map<string, string>> ()
 
