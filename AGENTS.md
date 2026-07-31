@@ -147,6 +147,7 @@ Each `endpoint` function wraps the handler with OpenAPI metadata via `addOpenApi
 #### Schema Workflows
 
 **After cloning:**
+
 ```bash
 cd server && dotnet restore
 just server-build    # Db.fs is committed — compiles immediately
@@ -154,6 +155,7 @@ just server-watch   # DbUp creates the database + applies migrations at startup
 ```
 
 **Changing the schema:**
+
 ```bash
 just db-migration name=add_priority   # scaffolds a new .sql migration
 # … write the SQL in the new file …
@@ -163,11 +165,13 @@ just server-build
 ```
 
 **Starting fresh:**
+
 ```bash
 just db-reset                         # delete DB, re-apply all migrations, regenerate
 ```
 
 **Key constraints:**
+
 - Migration files are applied once, in order — never modify an already-run migration. Add a new file for changes.
 - `Db.fs` is auto-generated — do not hand-edit. The mapping layer in the domain module is the control point for DB ↔ API type conversions.
 - Connection string is `Data Source=<name>.db` (relative, resolves to project root). Override with an absolute path (e.g. `/data/app.db`) in production via `ConnectionStrings__Default` env var.
@@ -195,17 +199,17 @@ Two-layer MVU:
 
 The `Effect` type is the cornerstone of the client architecture. Every `update` function returns `#(Model, Effect(Msg))` — pure data describing what side effects to perform. A single `effect.run` interpreter executes them, keeping `update` functions testable without mocking.
 
-| Effect               | Side effect                              |
-| -------------------- | ---------------------------------------- |
-| `HttpRequest`        | `gleam_fetch` → typed callback           |
-| `LoadFromStore`      | `window.localStorage.getItem`            |
-| `SaveToStore`        | `window.localStorage.setItem`            |
-| `Redirect`           | `window.location.assign`                 |
-| `After(delay, msg)`  | Dispatch `msg` after `delay` ms          |
-| `Navigate`           | Click/popstate interception + pushState  |
-| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`     |
-| `Batch([...])`       | Run multiple effects                     |
-| `None`               | No-op                                    |
+| Effect               | Side effect                             |
+| -------------------- | --------------------------------------- |
+| `HttpRequest`        | `gleam_fetch` → typed callback          |
+| `LoadFromStore`      | `window.localStorage.getItem`           |
+| `SaveToStore`        | `window.localStorage.setItem`           |
+| `Redirect`           | `window.location.assign`                |
+| `After(delay, msg)`  | Dispatch `msg` after `delay` ms         |
+| `Navigate`           | Click/popstate interception + pushState |
+| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`    |
+| `Batch([...])`       | Run multiple effects                    |
+| `None`               | No-op                                   |
 
 Bridging into Lustre:
 

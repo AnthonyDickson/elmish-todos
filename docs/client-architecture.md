@@ -24,17 +24,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 
 `update` returns pure data — a single `effect.run` interprets effects:
 
-| Effect               | Side effect                              |
-| -------------------- | ---------------------------------------- |
-| `HttpRequest`        | `gleam_fetch` → typed callback           |
-| `LoadFromStore`      | `window.localStorage.getItem`            |
-| `SaveToStore`        | `window.localStorage.setItem`            |
-| `Redirect`           | `window.location.assign`                 |
-| `After(delay, msg)`  | Dispatch `msg` after `delay` ms          |
-| `Navigate`           | Click/popstate interception + pushState  |
-| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`     |
-| `Batch([...])`       | Run multiple effects                     |
-| `None`               | No-op                                    |
+| Effect               | Side effect                             |
+| -------------------- | --------------------------------------- |
+| `HttpRequest`        | `gleam_fetch` → typed callback          |
+| `LoadFromStore`      | `window.localStorage.getItem`           |
+| `SaveToStore`        | `window.localStorage.setItem`           |
+| `Redirect`           | `window.location.assign`                |
+| `After(delay, msg)`  | Dispatch `msg` after `delay` ms         |
+| `Navigate`           | Click/popstate interception + pushState |
+| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`    |
+| `Batch([...])`       | Run multiple effects                    |
+| `None`               | No-op                                   |
 
 ### Bridging into Lustre
 
@@ -84,9 +84,9 @@ just client-test
 
 ## When to add a page
 
-| Condition                                   | Pattern                  |
-| ------------------------------------------- | ------------------------ |
-| Single feature, one concern                 | Add to existing page     |
-| New feature with independent state          | New page module          |
-| Feature shares state with existing page     | Extend existing page     |
-| Global state (auth, theme, user prefs)      | Extend shell model       |
+| Condition                               | Pattern              |
+| --------------------------------------- | -------------------- |
+| Single feature, one concern             | Add to existing page |
+| New feature with independent state      | New page module      |
+| Feature shares state with existing page | Extend existing page |
+| Global state (auth, theme, user prefs)  | Extend shell model   |

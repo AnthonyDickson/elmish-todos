@@ -9,6 +9,7 @@ Uses a custom `TestApp` fixture with `HostBuilder` + `TestServer` — the .NET 1
 replacement for the deprecated `WebHostBuilder`.
 
 The host contains only what endpoints need:
+
 - SQLite (temp file, auto-cleaned)
 - Routing + Oxpecker middleware
 - `Api.endpoints` directly — **not** the full domain module endpoints
@@ -29,13 +30,13 @@ instance across all tests in a class. Each test calls `fixture.CleanDatabase()`.
 
 The example domain (todos) covers the following CRUD test patterns:
 
-| Method | Endpoint                   | Asserts                     |
-| ------ | -------------------------- | --------------------------- |
-| GET    | `/api/todos`               | 200, `[]`                   |
-| GET    | `/api/todos` (seeded)      | 200, seeded item present    |
-| GET    | `/api/todos/{id}`          | 200, matches seeded item    |
-| GET    | `/api/todos/{id}`          | 404                         |
-| POST   | `/api/todos`               | 201, matches input          |
-| PATCH  | `/api/todos/{id}`          | 200, reflects changes       |
-| DELETE | `/api/todos/{id}`          | 204, 404 on re-GET          |
-| DELETE | `/api/todos/completed`     | 204, incomplete-only remain |
+| Method | Endpoint               | Asserts                     |
+| ------ | ---------------------- | --------------------------- |
+| GET    | `/api/todos`           | 200, `[]`                   |
+| GET    | `/api/todos` (seeded)  | 200, seeded item present    |
+| GET    | `/api/todos/{id}`      | 200, matches seeded item    |
+| GET    | `/api/todos/{id}`      | 404                         |
+| POST   | `/api/todos`           | 201, matches input          |
+| PATCH  | `/api/todos/{id}`      | 200, reflects changes       |
+| DELETE | `/api/todos/{id}`      | 204, 404 on re-GET          |
+| DELETE | `/api/todos/completed` | 204, incomplete-only remain |
