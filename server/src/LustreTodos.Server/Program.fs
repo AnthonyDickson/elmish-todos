@@ -37,6 +37,10 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAut
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
         options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer> () |> ignore
+
+        options.AddSchemaTransformer<OpenApi.DateTimeAsUnixTimestampTransformer> ()
+        |> ignore
+
         options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer> () |> ignore
 
         options.AddDocumentTransformer (fun doc _ _ ->
