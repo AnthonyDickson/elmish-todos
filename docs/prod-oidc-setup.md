@@ -22,7 +22,7 @@ Oidc__Authority              # Required. OIDC discovery URL
 Oidc__ClientId               # Required. SPA client ID (confidential)
 Oidc__ClientSecret           # Required. SPA client secret
 Oidc__CallbackPath           # Required. Redirect URI path (e.g. /signin-oidc)
-Login__ReturnUrl             # Required. Post-login redirect (e.g. https://todos.example.com/)
+Login__ReturnUrl             # Required. Post-login redirect (e.g. https://app.example.com/)
 OAuth2__AuthorizationUrl     # Optional. For Scalar OAuth2 flow
 OAuth2__TokenUrl             # Optional. For Scalar OAuth2 flow
 ```
@@ -73,10 +73,10 @@ The SPA redirect URI must match `Oidc__CallbackPath`.
 
 ```bash
 export Oidc__Authority=https://auth.example.com
-export Oidc__ClientId=lustre-todos
+export Oidc__ClientId=__PROJECT_KEBAB__
 export Oidc__ClientSecret=<your-production-secret>
 export Oidc__CallbackPath=/signin-oidc
-export Login__ReturnUrl=https://todos.example.com/
+export Login__ReturnUrl=https://app.example.com/
 export OAuth2__AuthorizationUrl=https://auth.example.com/api/oidc/authorization
 export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 ```
@@ -84,7 +84,7 @@ export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 Then start:
 
 ```bash
-dotnet run --project server/src/LustreTodos.Server
+dotnet run --project server/src/__PROJECT_NAME__.Server
 ```
 
 ## Cookie Security (Non-Development)
@@ -101,7 +101,7 @@ When `ASPNETCORE_ENVIRONMENT` is not `Development`:
 
 1. `https://<domain>/login` → redirected to OIDC login
 2. Authenticate → redirected back to SPA
-3. `GET /todos` → returns data, not `401`
+3. `GET /api/<resource>` → returns data, not `401`
 4. `https://<domain>/scalar/v1` → OAuth2 flow works
 
 ## Troubleshooting

@@ -65,7 +65,7 @@ services:
 
   e2e:
     image: mcr.microsoft.com/playwright:v1.61.1-resolute
-    container_name: playwright-e2e
+    container_name: lustre-todos-playwright-e2e
     network_mode: "host"
     working_dir: /tests
     command: sh -c "npm install && npx playwright test --reporter=line"

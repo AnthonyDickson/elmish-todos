@@ -1,11 +1,11 @@
-[![CI](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/ci.yml)
-[![E2E Tests](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/e2e.yml/badge.svg)](https://github.com/AnthonyDickson/lustre-todos/actions/workflows/e2e.yml)
+[![CI](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/e2e.yml/badge.svg)](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/e2e.yml)
 
-# Lustre Todos
+# __PROJECT_NAME__
 
-A TodoMVC port with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI)
+A full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI)
 and a Gleam/Lustre SPA frontend (Tailwind CSS v4, Vite).
-This repo is intended to serve as a template for larger projects.
+This repo is a template — fork or clone it, then run `scripts/rename.sh` to adopt it for your own project.
 
 ## Getting Started
 
@@ -41,7 +41,7 @@ See the [Justfile](./justfile) for all targets.
 ## How It Works
 
 - **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer).
-  Endpoints live in a single vertical slice (`Todos.fs`). SQLite with DbUp
+  Endpoints live in vertical slices (one file per domain). SQLite with DbUp
   migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json`,
   interactive API docs at `/scalar/v1`. See [Database](docs/database.md).
 - **Frontend** — Gleam/Lustre SPA with nested MVU. A custom `Effect` type
