@@ -39,8 +39,10 @@ RUN RUNTIME=${RUNTIME} PUBLISH_DIR=/publish just publish
 
 FROM debian:stable-slim AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 adduser \
     && rm -rf /var/lib/apt/lists/*
+
+RUN adduser --disabled-password --gecos '' appuser
 
 EXPOSE 5000
 
@@ -49,5 +51,6 @@ COPY --from=build /publish/wwwroot/ /app/wwwroot/
 COPY --from=build /publish/LustreTodos.Server.staticwebassets.endpoints.json /app/
 
 WORKDIR /app
+USER appuser
 ENV ASPNETCORE_URLS=http://0.0.0.0:5000
 ENTRYPOINT ["./LustreTodos.Server"]
