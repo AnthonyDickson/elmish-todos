@@ -14,8 +14,10 @@ set -euo pipefail
 
 OLD_PASCAL="LustreTodos"
 OLD_KEBAB="lustre-todos"
+OLD_SNAKE="${OLD_KEBAB//-/_}"
 NEW_PASCAL=""
 NEW_KEBAB=""
+NEW_SNAKE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -31,12 +33,14 @@ if [[ -z "$NEW_PASCAL" || -z "$NEW_KEBAB" ]]; then
     exit 1
 fi
 
+NEW_SNAKE="${NEW_KEBAB//-/_}"
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "Renaming: ${OLD_PASCAL} → ${NEW_PASCAL}  |  ${OLD_KEBAB} → ${NEW_KEBAB}"
+echo "Renaming: ${OLD_PASCAL} → ${NEW_PASCAL}  |  ${OLD_KEBAB} → ${NEW_KEBAB}  |  ${OLD_SNAKE} → ${NEW_SNAKE}"
 
-# ── 1. Text replacements (PascalCase + kebab-case) ─────────────────────────
+# ── 1. Text replacements (PascalCase + kebab-case + snake_case) ────────────
 # Exclude binary/build artifacts, node_modules, .git, DB files, lockfiles.
 echo "Replacing text in files..."
 
@@ -75,6 +79,10 @@ for f in $TEXT_FILES; do
     if grep -qFI "$OLD_KEBAB" "$f" 2>/dev/null; then
         sed -i "s|${OLD_KEBAB}|${NEW_KEBAB}|g" "$f"
     fi
+    # snake_case replacement
+    if grep -qFI "$OLD_SNAKE" "$f" 2>/dev/null; then
+        sed -i "s|${OLD_SNAKE}|${NEW_SNAKE}|g" "$f"
+    fi
     # Documentation tokens
     if grep -qFI '__PROJECT_NAME__' "$f" 2>/dev/null; then
         sed -i "s|__PROJECT_NAME__|${NEW_PASCAL}|g" "$f"
@@ -107,5 +115,17 @@ while IFS= read -r -d '' d; do
         mv "$d" "$parent/$new_base"
     fi
 done < <(find . -type d -name "*${OLD_PASCAL}*" -print0 | sort -rz)
+
+# ── 4. Rename snake_case files ─────────────────────────────────────────────
+echo "Renaming snake_case files..."
+
+while IFS= read -r -d '' f; do
+    dir=$(dirname "$f")
+    base=$(basename "$f")
+    new_base="${base//${OLD_SNAKE}/${NEW_SNAKE}}"
+    if [[ "$base" != "$new_base" ]]; then
+        mv "$f" "$dir/$new_base"
+    fi
+done < <(find . -type f -name "*${OLD_SNAKE}*" -print0)
 
 echo "Done. Verify with: git diff --stat"
