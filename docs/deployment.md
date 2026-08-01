@@ -28,7 +28,7 @@ The multi-stage `Dockerfile` installs Node.js and Gleam, builds the client, then
 publishes the server into a `debian:stable-slim` runtime image with only `ca-certificates`,
 `curl`, and `libicu` installed.
 
-> [!note] Publishing from the CLI
+> [!NOTE]
 > When publishing from the CLI, you will need to manually set the "package" (image) to publish and then assign the
 > package to your repo. See the page on [Working with the Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 > and [Connecting a repository to a package](https://docs.github.com/en/packages/learn-github-packages/connecting-a-repository-to-a-package)
@@ -68,6 +68,24 @@ ConnectionStrings__Default="Data Source=/data/app.db" \
 
 Use an absolute path — relative paths resolve to the container's working directory,
 which is ephemeral.
+
+> [!WARNING]
+> The container runs as a non-root `appuser` (UID 1000). Named Docker volumes
+> are auto-created with correct permissions, but **bind mounts** (`driver_opts`
+> with `o = "bind"`) require the host directory to already exist and be
+> writable by UID 1000:
+>
+> ```bash
+> mkdir -p /var/lib/my-app && chown 1000:1000 /var/lib/my-app
+> ```
+>
+> On NixOS, use `systemd.tmpfiles.rules`:
+>
+> ```nix
+> systemd.tmpfiles.rules = [ "d /var/lib/my-app 0755 1000 1000 -" ];
+> ```
+>
+> Failure to do this results in `SQLite Error 14: 'unable to open database file'`.
 
 ## Static Assets
 
