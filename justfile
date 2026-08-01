@@ -46,6 +46,7 @@ e2e-test:
 
 # Format with fantomas + gleam format
 format:
+	dprint fmt
 	gleam format
 	cd server && dotnet fantomas .
 
