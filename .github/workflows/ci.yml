@@ -16,10 +16,9 @@ jobs:
         with:
           global-json-file: server/global.json
           cache: true
-          cache-dependency-path: server/tests/LustreTodos.Server.Tests/packages.lock.json
+          cache-dependency-path: server/Directory.Packages.props
 
-      - run: dotnet restore server/tests/LustreTodos.Server.Tests --force-evaluate
-      - run: dotnet test server/tests/LustreTodos.Server.Tests --no-restore
+      - run: dotnet test server/tests/LustreTodos.Server.Tests
 
       - if: failure()
         run: |
