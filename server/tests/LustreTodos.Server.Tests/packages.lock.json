@@ -432,14 +432,14 @@
       "lustretodos.server": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.301, )",
+          "FSharp.Core": "[10.1.302, )",
           "FsToolkit.ErrorHandling": "[5.2.0, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.10, )",
           "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[10.0.10, )",
           "Microsoft.Data.Sqlite": "[10.0.10, )",
           "Oxpecker": "[2.1.0, )",
           "Oxpecker.OpenApi": "[2.1.2, )",
-          "Scalar.AspNetCore": "[2.16.16, )",
+          "Scalar.AspNetCore": "[2.16.17, )",
           "Serilog.AspNetCore": "[10.0.0, )",
           "SqlHydra.Query": "[4.0.4, )",
           "Thoth.Json.Net": "[12.0.0, )",
@@ -458,9 +458,9 @@
       },
       "FSharp.Core": {
         "type": "CentralTransitive",
-        "requested": "[10.1.301, )",
-        "resolved": "10.1.301",
-        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
+        "requested": "[10.1.302, )",
+        "resolved": "10.1.302",
+        "contentHash": "5i9oG5T47Us/6sblyySe4hwK80MtEGBvLOPYLA5ZoDgnhWEMMms0r91C/fdPcjYIJlGUQ07LY3HVkV+T7vw4dw=="
       },
       "FsToolkit.ErrorHandling": {
         "type": "CentralTransitive",
@@ -523,9 +523,9 @@
       },
       "Scalar.AspNetCore": {
         "type": "CentralTransitive",
-        "requested": "[2.16.16, )",
-        "resolved": "2.16.16",
-        "contentHash": "Ax0e0bIh+Upf92k1+pTBUom3e/kbpu20qsrDYmmS1NM721Eq2xF8c789x6IbiNrvW8WwySRzPv/icYYhb6idSg=="
+        "requested": "[2.16.17, )",
+        "resolved": "2.16.17",
+        "contentHash": "J5FyUxdZE/QbS/s3NSE6XWoBIJwta1eOUBuDbieHm2HSfFELH8hOnxSsoEBreckoekfZ7STsMCMGmmUNPVVosg=="
       },
       "Serilog.AspNetCore": {
         "type": "CentralTransitive",

@@ -18,7 +18,8 @@ jobs:
           cache: true
           cache-dependency-path: server/tests/LustreTodos.Server.Tests/packages.lock.json
 
-      - run: dotnet test server/tests/LustreTodos.Server.Tests
+      - run: dotnet restore server/tests/LustreTodos.Server.Tests --force-evaluate
+      - run: dotnet test server/tests/LustreTodos.Server.Tests --no-restore
 
   client-tests:
     runs-on: ubuntu-latest
@@ -28,7 +29,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: false
-          gleam-version: '1.17.x'
+          gleam-version: '1.18.x'
 
       - uses: actions/cache@v6
         with:
@@ -47,7 +48,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: false
-          gleam-version: '1.17.x'
+          gleam-version: '1.18.x'
 
       - run: gleam format --check
         working-directory: client

@@ -40,6 +40,10 @@ publish: copy-client-dist
 		-c Release -r {{RUNTIME}} -o {{PUBLISH_DIR}} \
 		-p:PublishTrimmed=true -p:TrimMode=partial
 
+# Playwright E2E tests in Docker
+e2e-test:
+	docker compose -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
+
 # Format with fantomas + gleam format
 format:
 	gleam format
@@ -49,9 +53,14 @@ format:
 lint:
 	cd server && dotnet fsharplint lint LustreTodos.slnx
 
-# Playwright E2E tests in Docker
-e2e-test:
-	docker compose -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
+audit:
+	cd client && npm audit
+	cd server && dotnet list package --vulnerable
+
+outdated:
+	cd client && gleam deps outdated
+	cd client && npm outdated
+	cd server && dotnet list package --outdated
 
 # ── Database ──────────────────────────────────────────────────────────────
 
