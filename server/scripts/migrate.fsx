@@ -10,7 +10,7 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=src/LustreTodos.Server/todos.db"
+let connectionString = "Data Source=src/LustreTodos.Server/app.sqlite3"
 let migrationsPath = "src/LustreTodos.Server/migrations"
 let scriptPrefix = "LustreTodos.Server.migrations."
 
