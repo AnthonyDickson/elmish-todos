@@ -9,9 +9,9 @@ server-build:
 server-watch:
 	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/LustreTodos.Server --no-hot-reload
 
-# xUnit tests
+# Expecto tests
 server-test:
-	dotnet test server/tests/LustreTodos.Server.Tests
+	dotnet run --project server/tests/LustreTodos.Server.Tests
 
 # npm install
 client-install-deps:

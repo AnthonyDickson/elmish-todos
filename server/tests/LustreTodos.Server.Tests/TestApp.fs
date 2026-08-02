@@ -2,6 +2,7 @@ namespace LustreTodos.Server.Tests
 
 open System
 open System.IO
+open System.Net.Http
 open System.Security.Claims
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
@@ -13,8 +14,6 @@ open Microsoft.Extensions.Hosting
 open Microsoft.AspNetCore.Http
 open Oxpecker
 open LustreTodos.Server.RequestLogging
-open LustreTodos.Server.Todos
-open LustreTodos.Server.Todos.Store
 
 module private TestClaims =
     let userId = "test-user"
@@ -23,28 +22,56 @@ module private TestClaims =
         let identity = ClaimsIdentity ([ Claim ("sub", userId) ], "test")
         ClaimsPrincipal identity
 
-type TestApp () =
-    let dbPath = Path.Combine (Path.GetTempPath (), $"test-todos-{Guid.NewGuid ()}.db")
+type TestAppConfig = {
+    EndpointProviders : (string -> Oxpecker.RoutingTypes.Endpoint seq) list
+    CleanTables : string list
+}
 
-    let connectionString = $"Data Source={dbPath}"
+module TestAppConfig =
+    open LustreTodos.Server
 
-    let store = create connectionString
+    let empty = {
+        EndpointProviders = []
+        CleanTables = []
+    }
 
-    let endpoints = Api.endpoints store
+    let withTodos (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr -> Todos.Store.create connStr |> Todos.Api.endpoints)
+                :: config.EndpointProviders
+            CleanTables = "Todos" :: config.CleanTables
+    }
 
-    let host =
-        do
-            let result =
-                DbUp.DeployChanges.To
-                    .SqliteDatabase(connectionString)
-                    .WithScriptsEmbeddedInAssembly(typeof<Todo>.Assembly)
-                    .Build()
-                    .PerformUpgrade ()
+type TestApp = {
+    Client : HttpClient
+    CleanDatabase : unit -> unit
+    Dispose : unit -> unit
+} with
 
-            if not result.Successful then
-                failwithf "Test database migration failed: %O" result.Error
+    interface IDisposable with
+        member this.Dispose () = this.Dispose ()
 
-        let h =
+module TestApp =
+    let create (config : TestAppConfig) =
+        let dbPath = Path.Combine (Path.GetTempPath (), $"test-todos-{Guid.NewGuid ()}.db")
+        let connectionString = $"Data Source={dbPath}"
+
+        let endpoints =
+            config.EndpointProviders
+            |> Seq.collect (fun provider -> provider connectionString)
+
+        let result =
+            DbUp.DeployChanges.To
+                .SqliteDatabase(connectionString)
+                .WithScriptsEmbeddedInAssembly(typeof<LustreTodos.Server.Todos.Todo>.Assembly)
+                .Build()
+                .PerformUpgrade ()
+
+        if not result.Successful then
+            failwithf "Test database migration failed: %O" result.Error
+
+        let host =
             HostBuilder()
                 .ConfigureWebHost(fun webHostBuilder ->
                     webHostBuilder
@@ -64,22 +91,20 @@ type TestApp () =
                     |> ignore)
                 .Build ()
 
-        h.StartAsync().GetAwaiter().GetResult ()
-        h
+        host.StartAsync().GetAwaiter().GetResult ()
 
-    let client = host.GetTestClient ()
+        let client = host.GetTestClient ()
 
-    member _.Client = client
+        let cleanDatabase () =
+            use conn = new SqliteConnection (connectionString)
+            conn.Open ()
 
-    member _.CleanDatabase () =
-        use conn = new SqliteConnection (connectionString)
-        conn.Open ()
-        use cmd = conn.CreateCommand ()
-        cmd.CommandText <- "DELETE FROM Todos"
-        cmd.ExecuteNonQuery () |> ignore
+            for table in config.CleanTables do
+                use cmd = conn.CreateCommand ()
+                cmd.CommandText <- $"DELETE FROM {table}"
+                cmd.ExecuteNonQuery () |> ignore
 
-    interface IDisposable with
-        member _.Dispose () =
+        let dispose () =
             client.Dispose ()
             host.Dispose ()
 
@@ -87,3 +112,9 @@ type TestApp () =
                 File.Delete dbPath
             with _ ->
                 ()
+
+        {
+            Client = client
+            CleanDatabase = cleanDatabase
+            Dispose = dispose
+        }
