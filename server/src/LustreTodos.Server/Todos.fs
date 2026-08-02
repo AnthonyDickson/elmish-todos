@@ -193,9 +193,11 @@ module Validation =
         |> Result.map (fun trimmedTitle -> { todo with Title = trimmedTitle })
 
 module Api =
+    open System.Collections.Generic
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
+    open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
 
@@ -231,6 +233,8 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "List all todos"
                             op.Description <- "Returns every todo item in the store."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
+
                             Task.CompletedTask
                 )
             )
@@ -265,6 +269,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Get a todo by ID"
                             op.Description <- "Returns a single todo item, or 404 if not found."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
                             Task.CompletedTask
                 )
             )
@@ -299,6 +304,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Create a todo"
                             op.Description <- "Creates a new todo item and returns it with status 201."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
                             Task.CompletedTask
                 )
             )
@@ -338,6 +344,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Update a todo"
                             op.Description <- "Replaces the title and completed flag of an existing todo."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
                             Task.CompletedTask
                 )
             )
@@ -371,6 +378,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Delete a todo"
                             op.Description <- "Permanently removes a todo. Returns 204 on success."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
                             Task.CompletedTask
                 )
             )
@@ -399,6 +407,7 @@ module Api =
                         fun op _ _ ->
                             op.Summary <- "Delete all completed todo"
                             op.Description <- "Permanently removes all completed todos. Returns 204 on success."
+                            op.Tags <- HashSet [ OpenApiTagReference "Todos" ]
                             Task.CompletedTask
                 )
             )
