@@ -30,7 +30,7 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   let effects =
     effect.batch([
       effect.map(todo_effect, TodoPageMsg),
-      effect.navigate(UrlChanged),
+      effect.init_routing(UrlChanged),
       effect.set_title("LustreTodos"),
     ])
 
