@@ -10,11 +10,11 @@ import lustre/attribute
 import lustre/element.{type Element, none, text}
 import lustre/element/html
 import lustre/event
-import todos_mvc/api_error
-import todos_mvc/effect
-import todos_mvc/guard
-import todos_mvc/response
-import todos_mvc/todo_item
+import lustre_todos/api_error
+import lustre_todos/effect
+import lustre_todos/guard
+import lustre_todos/response
+import lustre_todos/todo_item
 import youid/uuid
 
 // ── Types ────────────────────────────────────────────────────────────────────

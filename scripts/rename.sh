@@ -104,17 +104,18 @@ while IFS= read -r -d '' f; do
     fi
 done < <(find . -type f \( -name '*.fsproj' -o -name '*.slnx' \) -print0)
 
-# ── 3. Rename directories (deepest-first) ──────────────────────────────────
+# ── 3. Rename directories (deepest-first, PascalCase + snake_case) ─────────
 echo "Renaming directories..."
 
 while IFS= read -r -d '' d; do
     parent=$(dirname "$d")
     base=$(basename "$d")
     new_base="${base//${OLD_PASCAL}/${NEW_PASCAL}}"
+    new_base="${new_base//${OLD_SNAKE}/${NEW_SNAKE}}"
     if [[ "$base" != "$new_base" ]]; then
         mv "$d" "$parent/$new_base"
     fi
-done < <(find . -type d -name "*${OLD_PASCAL}*" -print0 | sort -rz)
+done < <(find . -type d \( -name "*${OLD_PASCAL}*" -o -name "*${OLD_SNAKE}*" \) -print0 | sort -rz)
 
 # ── 4. Rename snake_case files ─────────────────────────────────────────────
 echo "Renaming snake_case files..."

@@ -2,11 +2,11 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/time/timestamp.{type Timestamp}
 import gleeunit/should
-import todos_mvc/api_error
-import todos_mvc/effect.{HttpRequest, Message, Redirect}
-import todos_mvc/http_effect.{Delete}
-import todos_mvc/todo_item.{type Todo}
-import todos_mvc/todo_page
+import lustre_todos/api_error
+import lustre_todos/effect.{HttpRequest, Message, Redirect}
+import lustre_todos/http_effect.{Delete}
+import lustre_todos/todo_item.{type Todo}
+import lustre_todos/todo_page
 import youid/uuid.{type Uuid}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
