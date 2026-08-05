@@ -17,32 +17,17 @@ type Todo = {
     CreatedAt : DateTime
 }
 
-/// <summary>Payload for updating an existing todo item.</summary>
-type UpdateTodoRequest = { Title : string; Completed : bool }
-
-module Store =
-    open LustreTodos.DomainError
+module Todo =
     open LustreTodos.Db
-    open Microsoft.Data.Sqlite
-    open SqlHydra.Query
-    open SqlHydra.Query.SqliteExtensions
 
-    type Store = { Db : QueryContextFactory }
-
-    let create (connectionString : string) = {
-        Db = QueryContextFactory.Create connectionString
-    }
-
-    // ── DB row ↔ API type mapping ──────────────────────────────────────────
-
-    let private toTodo (row : main.Todos) : Todo = {
+    let fromRow (row : main.Todos) : Todo = {
         Id = row.Id
         Title = row.Title
         Completed = row.Completed
         CreatedAt = DateTimeOffset.FromUnixTimeSeconds(row.CreatedAt).UtcDateTime
     }
 
-    let private toRow (todo : Todo) (userId : string) : main.Todos = {
+    let toRow (todo : Todo) (userId : string) : main.Todos = {
         Id = todo.Id
         UserId = userId
         Title = todo.Title
@@ -50,117 +35,8 @@ module Store =
         CreatedAt = DateTimeOffset(todo.CreatedAt).ToUnixTimeSeconds ()
     }
 
-    // ── Queries ────────────────────────────────────────────────────────────
-
-    let getAll (store : Store) (userId : string) =
-        task {
-            try
-                let! rows =
-                    selectTask store.Db {
-                        for t in main.Todos do
-                            select t
-                            where (t.UserId = userId)
-                    }
-
-                let todos = rows |> List.ofSeq |> List.map toTodo
-
-                return Ok todos
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let get (store : Store) (id : Guid) (userId : string) =
-        task {
-            try
-                let! result =
-                    selectTask store.Db {
-                        for t in main.Todos do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
-
-                let todo = result |> Option.map toTodo
-
-                return Ok todo
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let insert (store : Store) (todo : Todo) (userId : string) =
-        task {
-            try
-                let! _ =
-                    insertTask store.Db {
-                        for t in main.Todos do
-                            entity (toRow todo userId)
-                    }
-
-                return Ok ()
-            with
-            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-                return Error (Conflict $"A todo with ID %O{todo.Id} already exists")
-            | ex -> return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let update (store : Store) (id : Guid) (userId : string) (title : string) (completed : bool) =
-        task {
-            try
-                use! shared = store.Db.OpenContextAsync ()
-                shared.BeginTransaction ()
-
-                let! _rowsAffected =
-                    updateTask shared {
-                        for t in main.Todos do
-                            set t.Title title
-                            set t.Completed completed
-                            where (t.Id = id && t.UserId = userId)
-                    }
-
-                let! result =
-                    selectTask shared {
-                        for t in main.Todos do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
-
-                shared.CommitTransaction ()
-
-                let todo = result |> Option.map toTodo
-
-                return Ok todo
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let delete (store : Store) (id : Guid) (userId : string) =
-        task {
-            try
-                let! rows =
-                    deleteTask store.Db {
-                        for t in main.Todos do
-                            where (t.Id = id && t.UserId = userId)
-                    }
-
-                let deleted = rows > 0
-
-                return Ok deleted
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let deleteCompleted (store : Store) (userId : string) =
-        task {
-            try
-                let! rowsAffected =
-                    deleteTask store.Db {
-                        for t in main.Todos do
-                            where (t.Completed && t.UserId = userId)
-                    }
-
-                return Ok rowsAffected
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
+/// <summary>Payload for updating an existing todo item.</summary>
+type UpdateTodoRequest = { Title : string; Completed : bool }
 
 module Validation =
     open LustreTodos.DomainError
@@ -197,32 +73,54 @@ module Api =
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
+    open Microsoft.Data.Sqlite
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
+    open SqlHydra.Query
 
     open LustreTodos.ApiError
     open LustreTodos.Auth
+    open LustreTodos.Db
     open LustreTodos.DomainError
     open LustreTodos.Endpoint
     open LustreTodos.Json
     open LustreTodos.RequestLogging
-    open Store
 
     module GetAll =
-        let private handler (store : Store) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos"
+
+        let private getAll (queryContext : QueryContextFactory) (userId : string) =
+            task {
+                try
+                    let! rows =
+                        selectTask queryContext {
+                            for t in main.Todos do
+                                select t
+                                where (t.UserId = userId)
+                        }
+
+                    let todos = rows |> List.ofSeq |> List.map Todo.fromRow
+
+                    return Ok todos
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let! userId = Auth.getUserId ctx
-                    let! items = Store.getAll store userId
+                    let! items = getAll queryContext userId
                     let log = RequestLog.fromContext ctx
 
                     log.Info ($"Returned %i{List.length items} todos", LogProp.prop "count" (List.length items))
                     do! Json.write ctx items
                 })
 
-        let endpoint (store : Store) =
-            route "/api/todos" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            route Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -240,11 +138,31 @@ module Api =
             )
 
     module Get =
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos/{%O:guid}"
+
+        let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+            task {
+                try
+                    let! result =
+                        selectTask queryContext {
+                            for t in main.Todos do
+                                where (t.Id = id && t.UserId = userId)
+                                tryHead
+                        }
+
+                    let todo = result |> Option.map Todo.fromRow
+
+                    return Ok todo
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let! userId = Auth.getUserId ctx
-                    let! todo = Store.get store id userId
+                    let! todo = get queryContext id userId
                     let log = RequestLog.fromContext ctx
 
                     match todo with
@@ -256,8 +174,8 @@ module Api =
                         return! Error (NotFound $"Todo %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef "/api/todos/{%O:guid}" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -275,7 +193,26 @@ module Api =
             )
 
     module Create =
-        let private handler (store : Store) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos"
+
+        let private insert (queryContext : QueryContextFactory) (todo : Todo) (userId : string) =
+            task {
+                try
+                    let! _ =
+                        insertTask queryContext {
+                            for t in main.Todos do
+                                entity (Todo.toRow todo userId)
+                        }
+
+                    return Ok ()
+                with
+                | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
+                    return Error (Conflict $"A todo with ID %O{todo.Id} already exists")
+                | ex -> return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
@@ -283,14 +220,14 @@ module Api =
                     let! (todo : Todo) = Json.read ctx
                     let! todo = Validation.validate todo
 
-                    let! () = Store.insert store todo userId
+                    let! () = insert queryContext todo userId
                     log.Info ($"Created todo %O{todo.Id}", LogProp.prop "todoId" (todo.Id.ToString ()))
                     ctx.SetStatusCode 201
                     do! Json.write ctx todo
                 })
 
-        let endpoint (store : Store) =
-            route "/api/todos" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            route Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<Todo>,
@@ -310,7 +247,46 @@ module Api =
             )
 
     module Update =
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos/{%O:guid}"
+
+        let private update
+            (queryContext : QueryContextFactory)
+            (id : Guid)
+            (userId : string)
+            (title : string)
+            (completed : bool)
+            =
+            task {
+                try
+                    use! shared = queryContext.OpenContextAsync ()
+                    shared.BeginTransaction ()
+
+                    let! _rowsAffected =
+                        updateTask shared {
+                            for t in main.Todos do
+                                set t.Title title
+                                set t.Completed completed
+                                where (t.Id = id && t.UserId = userId)
+                        }
+
+                    let! result =
+                        selectTask shared {
+                            for t in main.Todos do
+                                where (t.Id = id && t.UserId = userId)
+                                tryHead
+                        }
+
+                    shared.CommitTransaction ()
+
+                    let todo = result |> Option.map Todo.fromRow
+
+                    return Ok todo
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
@@ -318,7 +294,7 @@ module Api =
                     let! userId = Auth.getUserId ctx
 
                     let! title = Validation.validateAndTrimTitle req.Title
-                    let! updated = Store.update store id userId title req.Completed
+                    let! updated = update queryContext id userId title req.Completed
 
                     match updated with
                     | Some updated ->
@@ -329,8 +305,8 @@ module Api =
                         return! Error (NotFound $"Todo %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef "/api/todos/{%O:guid}" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<UpdateTodoRequest>,
@@ -350,12 +326,31 @@ module Api =
             )
 
     module Delete =
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos/{%O:guid}"
+
+        let delete (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+            task {
+                try
+                    let! rows =
+                        deleteTask queryContext {
+                            for t in main.Todos do
+                                where (t.Id = id && t.UserId = userId)
+                        }
+
+                    let deleted = rows > 0
+
+                    return Ok deleted
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! userId = Auth.getUserId ctx
-                    let! deleted = Store.delete store id userId
+                    let! deleted = delete queryContext id userId
 
                     if deleted then
                         log.Info ($"Deleted todo %O{id}", LogProp.prop "todoId" (id.ToString ()))
@@ -365,8 +360,8 @@ module Api =
                         return! Error (NotFound $"Todo %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef "/api/todos/{%O:guid}" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -384,19 +379,36 @@ module Api =
             )
 
     module DeleteCompleted =
-        let private handler (store : Store) : EndpointHandler =
+        [<Literal>]
+        let Path = "/api/todos/completed"
+
+        let private deleteCompleted (queryContext : QueryContextFactory) (userId : string) =
+            task {
+                try
+                    let! rowsAffected =
+                        deleteTask queryContext {
+                            for t in main.Todos do
+                                where (t.Completed && t.UserId = userId)
+                        }
+
+                    return Ok rowsAffected
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! userId = Auth.getUserId ctx
-                    let! rowsAffected = Store.deleteCompleted store userId
+                    let! rowsAffected = deleteCompleted queryContext userId
 
                     log.Info ($"Deleted %i{rowsAffected} completed todos", LogProp.prop "count" rowsAffected)
                     ctx.SetStatusCode 204
                 })
 
-        let endpoint (store : Store) =
-            route "/api/todos/completed" (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            route Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -412,11 +424,11 @@ module Api =
                 )
             )
 
-    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq = [
-        GET [ GetAll.endpoint store; Get.endpoint store ]
-        POST [ Create.endpoint store ]
-        PATCH [ Update.endpoint store ]
-        DELETE [ Delete.endpoint store; DeleteCompleted.endpoint store ]
+    let endpoints (ctx : QueryContextFactory) : Oxpecker.RoutingTypes.Endpoint seq = [
+        GET [ GetAll.endpoint ctx; Get.endpoint ctx ]
+        POST [ Create.endpoint ctx ]
+        PATCH [ Update.endpoint ctx ]
+        DELETE [ Delete.endpoint ctx; DeleteCompleted.endpoint ctx ]
     ]
 
 /// This module defines the public API of the Todos feature slice
@@ -425,8 +437,9 @@ module Todos =
     open Oxpecker
 
     open LustreTodos.Auth
+    open LustreTodos.Db
 
-    type Store = Store.Store
-
-    let endpoints (store : Store) =
-        Api.endpoints store |> Seq.map (addFilter Auth.requireAuth)
+    let endpoints (connectionString : string) =
+        QueryContextFactory.Create connectionString
+        |> Api.endpoints
+        |> Seq.map (addFilter Auth.requireAuth)

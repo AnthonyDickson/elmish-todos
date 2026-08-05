@@ -27,6 +27,7 @@ type TestAppConfig = {
 
 module TestAppConfig =
     open LustreTodos
+    open LustreTodos.Db
 
     let empty = {
         EndpointProviders = []
@@ -36,7 +37,7 @@ module TestAppConfig =
     let withTodos (config : TestAppConfig) = {
         config with
             EndpointProviders =
-                (fun connStr -> Todos.Store.create connStr |> Todos.Api.endpoints)
+                (fun connStr -> QueryContextFactory.Create connStr |> Todos.Api.endpoints)
                 :: config.EndpointProviders
             CleanTables = "Todos" :: config.CleanTables
     }

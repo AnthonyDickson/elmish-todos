@@ -220,8 +220,7 @@ let main (args : string array) : int =
         loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
-    let todoStore = Todos.Store.create connectionString
-    let todoEndpoints = Todos.endpoints todoStore
+    let todoEndpoints = Todos.endpoints connectionString
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
