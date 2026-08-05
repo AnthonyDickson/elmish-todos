@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Todos
+namespace LustreTodos.Todos
 
 open System
 
@@ -21,8 +21,8 @@ type Todo = {
 type UpdateTodoRequest = { Title : string; Completed : bool }
 
 module Store =
-    open LustreTodos.Server.DomainError
-    open LustreTodos.Server.Db
+    open LustreTodos.DomainError
+    open LustreTodos.Db
     open Microsoft.Data.Sqlite
     open SqlHydra.Query
     open SqlHydra.Query.SqliteExtensions
@@ -163,7 +163,7 @@ module Store =
         }
 
 module Validation =
-    open LustreTodos.Server.DomainError
+    open LustreTodos.DomainError
 
     [<Literal>]
     let private MaxTodoTitleLength = 256
@@ -201,12 +201,12 @@ module Api =
     open Oxpecker
     open Oxpecker.OpenApi
 
-    open LustreTodos.Server.ApiError
-    open LustreTodos.Server.Auth
-    open LustreTodos.Server.DomainError
-    open LustreTodos.Server.Endpoint
-    open LustreTodos.Server.Json
-    open LustreTodos.Server.RequestLogging
+    open LustreTodos.ApiError
+    open LustreTodos.Auth
+    open LustreTodos.DomainError
+    open LustreTodos.Endpoint
+    open LustreTodos.Json
+    open LustreTodos.RequestLogging
     open Store
 
     module GetAll =
@@ -424,7 +424,7 @@ module Api =
 module Todos =
     open Oxpecker
 
-    open LustreTodos.Server.Auth
+    open LustreTodos.Auth
 
     type Store = Store.Store
 

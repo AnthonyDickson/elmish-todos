@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.OpenApi
+namespace LustreTodos.OpenApi
 
 module OpenApi =
     open Microsoft.AspNetCore.OpenApi

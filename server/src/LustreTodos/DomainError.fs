@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.DomainError
+namespace LustreTodos.DomainError
 
 type DomainError =
     | ValidationFailed of string

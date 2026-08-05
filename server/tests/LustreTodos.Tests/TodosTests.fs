@@ -1,12 +1,12 @@
-namespace LustreTodos.Server.Tests
+namespace LustreTodos.Tests
 
 open System
 open System.Net
 open System.Net.Http
 open System.Text
 open Expecto
-open LustreTodos.Server.Coders
-open LustreTodos.Server.Todos
+open LustreTodos.Coders
+open LustreTodos.Todos
 
 module TodosTests =
     let private todo (id : Guid) (title : string) (completed : bool) = {

@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Tests
+namespace LustreTodos.Tests
 
 open System
 open System.Net.Http
@@ -26,7 +26,7 @@ type TestAppConfig = {
 }
 
 module TestAppConfig =
-    open LustreTodos.Server
+    open LustreTodos
 
     let empty = {
         EndpointProviders = []
@@ -51,8 +51,8 @@ type TestApp = {
         member this.Dispose () = this.Dispose ()
 
 module TestApp =
-    open LustreTodos.Server.RequestLogging
-    open LustreTodos.Server.Todos
+    open LustreTodos.RequestLogging
+    open LustreTodos.Todos
 
     /// Create an app server with an in-memory SQLite database
     let create (config : TestAppConfig) =

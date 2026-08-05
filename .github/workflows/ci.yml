@@ -18,7 +18,7 @@ jobs:
           cache: true
           cache-dependency-path: server/Directory.Packages.props
 
-      - run: dotnet run --project server/tests/LustreTodos.Server.Tests
+      - run: dotnet run --project server/tests/LustreTodos.Tests
 
       - if: failure()
         run: |
@@ -121,7 +121,7 @@ jobs:
       - run: dotnet fsi scripts/migrate.fsx
         working-directory: server
 
-      - run: dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
+      - run: dotnet sqlhydra sqlite --project src/LustreTodos/LustreTodos.fsproj
         working-directory: server
 
       - run: git diff --exit-code

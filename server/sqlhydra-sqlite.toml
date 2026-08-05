@@ -1,7 +1,7 @@
 [general]
-connection = "Data Source=src/LustreTodos.Server/app.sqlite3"
+connection = "Data Source=src/LustreTodos/app.sqlite3"
 output = "Db.fs"
-namespace = "LustreTodos.Server.Db"
+namespace = "LustreTodos.Db"
 cli_mutable = true
 
 [sqlhydra_query_integration]

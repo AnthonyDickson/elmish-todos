@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.RequestLogging
+namespace LustreTodos.RequestLogging
 
 open System
 open Microsoft.AspNetCore.Http

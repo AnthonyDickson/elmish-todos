@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="src/LustreTodos.Server/LustreTodos.Server.fsproj" />
-  <Project Path="tests/LustreTodos.Server.Tests/LustreTodos.Server.Tests.fsproj" />
+  <Project Path="src/LustreTodos/LustreTodos.fsproj" />
+  <Project Path="tests/LustreTodos.Tests/LustreTodos.Tests.fsproj" />
 </Solution>

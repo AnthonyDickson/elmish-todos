@@ -1,17 +1,17 @@
 RUNTIME := env_var_or_default("RUNTIME", "linux-x64")
-PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/LustreTodos.Server/bin/Release/publish")
+PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/LustreTodos/bin/Release/publish")
 
 # Build the server
 server-build:
-	dotnet build server/src/LustreTodos.Server/LustreTodos.Server.fsproj
+	dotnet build server/src/LustreTodos/LustreTodos.fsproj
 
 # Run the server (auto-applies DB migrations)
 server-watch:
-	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/LustreTodos.Server --no-hot-reload
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/LustreTodos --no-hot-reload
 
 # Expecto tests
 server-test:
-	dotnet run --project server/tests/LustreTodos.Server.Tests
+	dotnet run --project server/tests/LustreTodos.Tests
 
 # npm install
 client-install-deps:
@@ -31,12 +31,12 @@ client-build:
 
 # Copy client dist into server wwwroot/
 copy-client-dist: client-build
-	mkdir -p server/src/LustreTodos.Server/wwwroot
-	cp -r client/dist/* server/src/LustreTodos.Server/wwwroot/
+	mkdir -p server/src/LustreTodos/wwwroot
+	cp -r client/dist/* server/src/LustreTodos/wwwroot/
 
 # Single-file publish (builds client, copies assets, publishes server)
 publish: copy-client-dist
-	dotnet publish server/src/LustreTodos.Server/LustreTodos.Server.fsproj \
+	dotnet publish server/src/LustreTodos/LustreTodos.fsproj \
 		-c Release -r {{RUNTIME}} -o {{PUBLISH_DIR}} \
 		-p:PublishTrimmed=true -p:TrimMode=partial
 
@@ -69,7 +69,7 @@ outdated:
 db-migration name:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	dir="server/src/LustreTodos.Server/migrations"
+	dir="server/src/LustreTodos/migrations"
 	count=$(ls "$dir"/*.sql 2>/dev/null | wc -l)
 	num=$(printf "%03d" $((count + 1)))
 	file="$dir/${num}_{{name}}.sql"
@@ -82,12 +82,12 @@ db-migrate:
 
 # Regenerate Db.fs types from live DB (SqlHydra)
 db-generate:
-	cd server && dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
+	cd server && dotnet sqlhydra sqlite --project src/LustreTodos/LustreTodos.fsproj
 
 # db-migrate + db-generate (full schema update)
 db-update: db-migrate db-generate
 
 # Delete DB, re-apply all migrations, regenerate
 db-reset:
-	rm -f server/src/LustreTodos.Server/app.sqlite3
+	rm -f server/src/LustreTodos/app.sqlite3
 	just db-update

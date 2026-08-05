@@ -19,7 +19,7 @@ services:
     image: mcr.microsoft.com/dotnet/sdk:10.0
     container_name: lustre-todos-server-e2e
     network_mode: "host"
-    working_dir: /src/server/src/LustreTodos.Server
+    working_dir: /src/server/src/LustreTodos
     stdin_open: true
     tty: true
     command: >

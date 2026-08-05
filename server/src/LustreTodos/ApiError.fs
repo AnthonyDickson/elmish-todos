@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.ApiError
+namespace LustreTodos.ApiError
 
 type ApiError = {
     Error : string

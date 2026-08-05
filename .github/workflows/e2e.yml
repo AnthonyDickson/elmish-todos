@@ -18,7 +18,7 @@ jobs:
           cache-dependency-path: server/Directory.Packages.props
 
       - name: Restore NuGet packages
-        run: dotnet restore server/src/LustreTodos.Server/LustreTodos.Server.fsproj
+        run: dotnet restore server/src/LustreTodos/LustreTodos.fsproj
 
       - uses: docker/setup-buildx-action@v3
 

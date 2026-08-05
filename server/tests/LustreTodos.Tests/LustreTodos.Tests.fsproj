@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>LustreTodos.Server.Tests</RootNamespace>
+    <RootNamespace>LustreTodos.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/LustreTodos.Server/LustreTodos.Server.fsproj" />
+    <ProjectReference Include="../../src/LustreTodos/LustreTodos.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

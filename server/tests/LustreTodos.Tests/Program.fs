@@ -1,4 +1,4 @@
-module LustreTodos.Server.Tests.Program
+module LustreTodos.Tests.Program
 
 open Expecto
 

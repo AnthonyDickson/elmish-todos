@@ -1,4 +1,4 @@
-module LustreTodos.Server.Program
+module LustreTodos.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
@@ -22,12 +22,12 @@ open Scalar.AspNetCore
 open Serilog
 open Serilog.Formatting.Compact
 
-open LustreTodos.Server.ApiError
-open LustreTodos.Server.Auth
-open LustreTodos.Server.Config
-open LustreTodos.Server.Json
-open LustreTodos.Server.OpenApi
-open LustreTodos.Server.Todos
+open LustreTodos.ApiError
+open LustreTodos.Auth
+open LustreTodos.Config
+open LustreTodos.Json
+open LustreTodos.OpenApi
+open LustreTodos.Todos
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
@@ -123,7 +123,7 @@ let private applyMigrations (connectionString : string) =
     fkCmd.ExecuteNonQuery () |> ignore
 
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
-    let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
+    let logger = loggerFactory.CreateLogger "LustreTodos.Program"
 
     RequestDelegate (fun (ctx : HttpContext) ->
         task {
@@ -272,8 +272,7 @@ let main (args : string array) : int =
 
     app.Use (
         RequestLogging.Middleware.requestLogging (
-            (app.Services.GetRequiredService<Serilog.ILogger> ())
-                .ForContext ("SourceContext", "LustreTodos.Server.Request")
+            (app.Services.GetRequiredService<Serilog.ILogger> ()).ForContext ("SourceContext", "LustreTodos.Request")
         )
     )
     |> ignore
