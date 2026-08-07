@@ -63,7 +63,6 @@ fn empty_model() -> todo_page.Model {
     todos: [],
     visibility: todo_page.All,
     edit_state: None,
-    toasts: [],
   )
 }
 
@@ -73,7 +72,6 @@ fn model_with_todos() -> todo_page.Model {
     todos: [todo1(), todo2()],
     visibility: todo_page.All,
     edit_state: None,
-    toasts: [],
   )
 }
 
@@ -90,7 +88,7 @@ pub fn update_todo_action_failed_non_401_rolls_back_test() {
     ])
 
   // When that toggle fails with a non-401 error
-  let #(new_model, _effect) =
+  let #(new_model, _effect, _out_msgs) =
     todo_page.update(
       model,
       todo_page.TodoActionFailed(
@@ -124,7 +122,7 @@ pub fn update_submit_edited_empty_title_deletes_test() {
     )
 
   // When the user submits the edit
-  let #(new_model, effect) =
+  let #(new_model, effect, _out_msgs) =
     todo_page.update(model, todo_page.UserSubmittedEditedTodo)
 
   // Then the edit state should be cleared
@@ -145,7 +143,7 @@ pub fn update_delete_todo_test() {
   let model = model_with_todos()
 
   // When the user deletes one
-  let #(new_model, effect) =
+  let #(new_model, effect, _out_msgs) =
     todo_page.update(model, todo_page.UserDeletedTodo(id2()))
 
   // Then the deleted todo should be removed
@@ -169,7 +167,7 @@ pub fn update_delete_completed_todos_batches_test() {
     todo_page.Model(..empty_model(), todos: [todo1(), todo2(), todo3()])
 
   // When the user clears completed todos
-  let #(new_model, effect) =
+  let #(new_model, effect, _out_msgs) =
     todo_page.update(model, todo_page.UserDeletedCompletedTodos)
 
   // Then all completed todos are deleted
@@ -193,7 +191,7 @@ pub fn update_todo_action_failed_delete_rolls_back_in_order_test() {
   let model = todo_page.Model(..empty_model(), todos: [todo1(), todo3()])
 
   // When that delete fails with a non-401 error
-  let #(new_model, _effect) =
+  let #(new_model, _effect, _out_msgs) =
     todo_page.update(
       model,
       todo_page.TodoActionFailed(
@@ -228,7 +226,7 @@ pub fn update_todo_action_failed_401_redirects_test() {
     ])
 
   // When that toggle fails with a 401
-  let #(new_model, effect) =
+  let #(new_model, effect, _out_msgs) =
     todo_page.update(
       model,
       todo_page.TodoActionFailed(

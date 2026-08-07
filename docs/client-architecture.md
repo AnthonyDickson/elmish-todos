@@ -6,19 +6,55 @@ with a single interpreter — `update` functions stay pure.
 ## Nested MVU
 
 Two layers: `app.gleam` (shell + routing) delegates to `todo_page.gleam`
-(feature page). The parent maps child effects through `effect.map`:
+(feature page). Child `update` functions return a third element — a list of
+`OutMsg` values signalling app-level concerns to the shell:
 
 ```gleam
-pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
-  case msg {
-    TodoPageMsg(inner_msg) -> {
-      let #(inner_model, inner_effect) =
-        todo_page.update(model.todo_page, inner_msg)
-      #(Model(..model, todo_page: inner_model), effect.map(inner_effect, TodoPageMsg))
-    }
-  }
+pub fn update(
+  model: Model,
+  msg: Msg,
+) -> #(Model, effect.Effect(Msg), List(OutMsg)) {
+```
+
+The parent maps child effects through `effect.map` and folds the out
+messages into its own model and effects with `with_out_msgs`:
+
+```gleam
+TodoPageMsg(inner_msg) -> {
+  let #(inner_model, inner_effect, out_msgs) =
+    todo_page.update_with_storage(model.todo_page, inner_msg)
+  #(
+    Model(..model, todo_page: inner_model),
+    effect.map(inner_effect, TodoPageMsg),
+  )
+  |> with_out_msgs(out_msgs)
 }
 ```
+
+### App-level concerns: toasts
+
+Toasts are an app-level concern, not a page concern. Pages don't own toast
+state or markup — they emit `out_msg.PageRequestedToast(...)` and the shell
+owns rendering, stacking, and dismissal:
+
+- **Single placement and style** — the toast stack lives in one place
+  (`toast.view_with_container`), so every page gets consistent UI.
+- **Survives page changes** — toasts live in `app.gleam`'s `Model`, so
+  navigating away doesn't destroy them.
+- **One dismiss path** — auto-dismiss is scheduled by the shell with
+  `effect.After(delay, ToastDismissed(id))`; manual dismissal is a single
+  `ToastDismissed` message.
+
+The requester still decides what a toast says (`title`, `body`), how severe
+it is (`level: ToastLevel` — `Info`/`Warning`/`Error`, which drives border
+colour and ARIA role), and whether it auto-dismisses (`dismiss_after_ms`).
+The shell only renders.
+
+The cost is wiring: every `OutMsg` variant must be handled in
+`map_out_msg`, and every child `update` returns the extra list. The tradeoff
+pays off for anything that should look and behave identically across the
+app — template consumers signal the shell by adding a variant to
+`out_msg.gleam`, never by rendering their own UI.
 
 ## Effect System
 
@@ -84,9 +120,10 @@ just client-test
 
 ## When to add a page
 
-| Condition                               | Pattern              |
-| --------------------------------------- | -------------------- |
-| Single feature, one concern             | Add to existing page |
-| New feature with independent state      | New page module      |
-| Feature shares state with existing page | Extend existing page |
-| Global state (auth, theme, user prefs)  | Extend shell model   |
+| Condition                               | Pattern                 |
+| --------------------------------------- | ----------------------- |
+| Single feature, one concern             | Add to existing page    |
+| New feature with independent state      | New page module         |
+| Feature shares state with existing page | Extend existing page    |
+| Global state (auth, theme, user prefs)  | Extend shell model      |
+| Transient app-wide UI (toasts, banners) | Emit `OutMsg` from page |

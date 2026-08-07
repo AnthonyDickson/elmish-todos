@@ -1,17 +1,24 @@
+import gleam/list
+import gleam/option.{None, Some}
 import gleam/uri
 import lustre
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
+import lustre/element/html
 import lustre_todos/effect
+import lustre_todos/out_msg.{type OutMsg}
+import lustre_todos/toast.{type Toast}
 import lustre_todos/todo_page
+import youid/uuid.{type Uuid}
 
 pub type Model {
-  Model(todo_page: todo_page.Model)
+  Model(todo_page: todo_page.Model, toasts: List(Toast))
 }
 
 pub type Msg {
   UrlChanged(path: String)
   TodoPageMsg(todo_page.Msg)
+  ToastDismissed(id: Uuid)
 }
 
 fn path_to_visibility(path: String) -> todo_page.Visibility {
@@ -25,7 +32,7 @@ fn path_to_visibility(path: String) -> todo_page.Visibility {
 
 pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   let #(todo_model, todo_effect) = todo_page.init()
-  let model = Model(todo_page: todo_model)
+  let model = Model(todo_page: todo_model, toasts: [])
 
   let effects =
     effect.batch([
@@ -37,28 +44,84 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   #(model, effects)
 }
 
+fn map_out_msg(
+  out_msg: OutMsg,
+  model: Model,
+  effect: effect.Effect(Msg),
+) -> #(Model, effect.Effect(Msg)) {
+  case out_msg {
+    out_msg.PageRequestedToast(title:, body:, level:, dismiss_after_ms:) -> {
+      let new_toast = toast.Toast(id: uuid.v7(), title:, body:, level:)
+      let model = Model(..model, toasts: [new_toast, ..model.toasts])
+      let effect = case dismiss_after_ms {
+        Some(delay) ->
+          effect.batch([
+            effect,
+            effect.After(delay, ToastDismissed(new_toast.id)),
+          ])
+        None -> effect
+      }
+      #(model, effect)
+    }
+  }
+}
+
+fn with_out_msgs(
+  update_output: #(Model, effect.Effect(Msg)),
+  out_msgs: List(OutMsg),
+) -> #(Model, effect.Effect(Msg)) {
+  case out_msgs {
+    [] -> update_output
+    [msg, ..other_msgs] -> {
+      let #(model, effect) = update_output
+      map_out_msg(msg, model, effect)
+      |> with_out_msgs(other_msgs)
+    }
+  }
+}
+
 pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
     UrlChanged(path) -> {
       let visibility = path_to_visibility(path)
-      let #(todo_model, todo_effect) =
+      let #(todo_model, todo_effect, out_msgs) =
         todo_page.update_with_storage(
           model.todo_page,
           todo_page.UserChangedVisibility(visibility),
         )
-      #(Model(todo_page: todo_model), effect.map(todo_effect, TodoPageMsg))
+      #(
+        Model(..model, todo_page: todo_model),
+        effect.map(todo_effect, TodoPageMsg),
+      )
+      |> with_out_msgs(out_msgs)
     }
     TodoPageMsg(inner_msg) -> {
-      let #(inner_model, inner_effect) =
+      let #(inner_model, inner_effect, out_msgs) =
         todo_page.update_with_storage(model.todo_page, inner_msg)
-      #(Model(todo_page: inner_model), effect.map(inner_effect, TodoPageMsg))
+      #(
+        Model(..model, todo_page: inner_model),
+        effect.map(inner_effect, TodoPageMsg),
+      )
+      |> with_out_msgs(out_msgs)
+    }
+    ToastDismissed(id:) -> {
+      let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
+      #(Model(..model, toasts:), effect.none())
     }
   }
 }
 
 pub fn view(model: Model) -> Element(Msg) {
-  todo_page.view(model.todo_page)
-  |> element.map(TodoPageMsg)
+  let page =
+    todo_page.view(model.todo_page)
+    |> element.map(TodoPageMsg)
+
+  let toasts = toast.view_with_container(model.toasts, ToastDismissed)
+
+  html.div([], [
+    page,
+    toasts,
+  ])
 }
 
 fn update_with_effect(

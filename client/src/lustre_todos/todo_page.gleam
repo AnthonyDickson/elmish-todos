@@ -7,13 +7,15 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/timestamp
 import lustre/attribute
-import lustre/element.{type Element, none, text}
+import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import lustre_todos/api_error
 import lustre_todos/effect
 import lustre_todos/guard
+import lustre_todos/out_msg.{type OutMsg}
 import lustre_todos/response
+import lustre_todos/toast
 import lustre_todos/todo_item
 import youid/uuid
 
@@ -37,17 +39,12 @@ pub type TodoAction {
   DeleteCompleted(List(todo_item.Todo))
 }
 
-pub type Toast {
-  Toast(id: uuid.Uuid, title: String, body: String)
-}
-
 pub type Model {
   Model(
     new_todo: String,
     todos: List(todo_item.Todo),
     visibility: Visibility,
     edit_state: Option(EditState),
-    toasts: List(Toast),
   )
 }
 
@@ -55,7 +52,6 @@ pub type Msg {
   ClientLoadedTodos(todos: List(todo_item.Todo))
   ClientFetchedTodos(result: Result(List(todo_item.Todo), api_error.ApiError))
   TodoActionFailed(action: TodoAction, error: api_error.ApiError)
-  ToastDismissed(id: uuid.Uuid)
   UserChangedNewTodo(text: String)
   UserSubmittedNewTodo
   UserToggledCompletedStatus(id: uuid.Uuid)
@@ -119,7 +115,7 @@ fn rollback(model: Model, action: TodoAction) -> Model {
   }
 }
 
-fn create_toast(model: Model, action: TodoAction) -> Option(Toast) {
+fn create_toast(model: Model, action: TodoAction) -> Option(out_msg.OutMsg) {
   case action {
     UpdateCompleted(id, previous_state) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
@@ -128,13 +124,14 @@ fn create_toast(model: Model, action: TodoAction) -> Option(Toast) {
             True -> "completed"
             False -> "not completed"
           }
-          Some(Toast(
-            id: uuid.v7(),
+          Some(out_msg.PageRequestedToast(
             title: "Could not sync changes",
             body: "Reverted the todo status from '"
               <> item.title
               <> "' to "
               <> state_text,
+            level: toast.Error,
+            dismiss_after_ms: Some(5000),
           ))
         }
         Error(Nil) -> None
@@ -142,42 +139,46 @@ fn create_toast(model: Model, action: TodoAction) -> Option(Toast) {
     UpdateTitle(id, previous_title) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
         Ok(item) ->
-          Some(Toast(
-            id: uuid.v7(),
+          Some(out_msg.PageRequestedToast(
             title: "Could not sync changes",
             body: "Reverted the todo title from '"
               <> item.title
               <> "' to '"
               <> previous_title
               <> "'",
+            level: toast.Error,
+            dismiss_after_ms: Some(5000),
           ))
         Error(Nil) -> None
       }
     Create(id) ->
       case list.find(model.todos, fn(t) { t.id == id }) {
         Ok(item) ->
-          Some(Toast(
-            id: uuid.v7(),
+          Some(out_msg.PageRequestedToast(
             title: "Could not sync changes",
             body: "Reverted the creation of the todo '" <> item.title <> "'",
+            level: toast.Error,
+            dismiss_after_ms: Some(5000),
           ))
         Error(Nil) -> None
       }
     Delete(previous_todo) ->
-      Some(Toast(
-        id: uuid.v7(),
+      Some(out_msg.PageRequestedToast(
         title: "Could not sync changes",
         body: "Reverted the deletion of the todo '"
           <> previous_todo.title
           <> "'",
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
       ))
     DeleteCompleted(completed_todos) ->
-      Some(Toast(
-        id: uuid.v7(),
+      Some(out_msg.PageRequestedToast(
         title: "Could not sync changes",
         body: "Reverted the deletion of "
           <> int.to_string(completed_todos |> list.length)
           <> " todos",
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
       ))
   }
 }
@@ -232,83 +233,76 @@ fn load_todos_from_store() -> effect.Effect(Msg) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 pub fn init() -> #(Model, effect.Effect(Msg)) {
-  let model =
-    Model(
-      new_todo: "",
-      todos: [],
-      visibility: All,
-      edit_state: None,
-      toasts: [],
-    )
+  let model = Model(new_todo: "", todos: [], visibility: All, edit_state: None)
 
   #(model, effect.batch([fetch_todos(), load_todos_from_store()]))
 }
 
 // ── Update ───────────────────────────────────────────────────────────────────
 
-pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
+pub fn update(
+  model: Model,
+  msg: Msg,
+) -> #(Model, effect.Effect(Msg), List(OutMsg)) {
   case msg {
-    ClientLoadedTodos(todos) -> #(Model(..model, todos:), effect.none())
+    ClientLoadedTodos(todos) -> #(Model(..model, todos:), effect.none(), [])
 
     ClientFetchedTodos(Ok(todos)) -> #(
       Model(..model, todos:),
       save_todos(todos),
+      [],
     )
 
     ClientFetchedTodos(Error(error)) ->
       case error.status_code {
-        Some(401) -> #(model, effect.Redirect("/login"))
+        Some(401) -> #(model, effect.Redirect("/login"), [])
         _ -> {
-          let toast =
-            Toast(
-              id: uuid.v7(),
-              title: "Could not sync todos",
-              body: "Falling back to local data",
-            )
-          #(
-            Model(..model, toasts: list.append(model.toasts, [toast])),
-            effect.batch([
-              effect.LogError(api_error.describe(error)),
-              effect.After(5000, ToastDismissed(toast.id)),
-            ]),
-          )
+          let title = "Could not sync todos"
+          let body = "Falling back to local data"
+
+          #(model, effect.LogError(api_error.describe(error)), [
+            out_msg.PageRequestedToast(
+              title:,
+              body:,
+              level: toast.Error,
+              dismiss_after_ms: Some(5000),
+            ),
+          ])
         }
       }
 
     TodoActionFailed(action, error) -> {
       let updated_model = rollback(model, action)
       case error.status_code {
-        Some(401) -> #(updated_model, effect.Redirect("/login"))
+        Some(401) -> #(updated_model, effect.Redirect("/login"), [])
         _ -> {
           case create_toast(model, action) {
-            Some(toast) -> #(
-              Model(
-                ..updated_model,
-                toasts: list.append(updated_model.toasts, [toast]),
-              ),
-              effect.batch([
-                effect.LogError(api_error.describe(error)),
-                effect.After(5000, ToastDismissed(toast.id)),
-              ]),
+            Some(toast_msg) -> #(
+              updated_model,
+              effect.LogError(api_error.describe(error)),
+              [toast_msg],
             )
-            None -> #(updated_model, effect.LogError(api_error.describe(error)))
+            None -> #(
+              updated_model,
+              effect.LogError(api_error.describe(error)),
+              [],
+            )
           }
         }
       }
     }
 
-    ToastDismissed(id) -> {
-      let toasts = list.filter(model.toasts, fn(t) { t.id != id })
-      #(Model(..model, toasts:), effect.none())
-    }
-
-    UserChangedNewTodo(text) -> #(Model(..model, new_todo: text), effect.none())
+    UserChangedNewTodo(text) -> #(
+      Model(..model, new_todo: text),
+      effect.none(),
+      [],
+    )
 
     UserSubmittedNewTodo -> {
       let title = string.trim(model.new_todo)
 
       use <- bool.lazy_guard(when: string.is_empty(title), return: fn() {
-        #(Model(..model, new_todo: ""), effect.none())
+        #(Model(..model, new_todo: ""), effect.none(), [])
       })
 
       let now = timestamp.system_time()
@@ -334,6 +328,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       #(
         Model(..model, new_todo: "", todos: list.append(model.todos, [item])),
         create_effect,
+        [],
       )
     }
 
@@ -341,7 +336,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       use item <- guard.ok(
         in: list.find(model.todos, fn(t) { t.id == id }),
         else_return: fn(_) {
-          #(Model(..model, edit_state: None), effect.none())
+          #(Model(..model, edit_state: None), effect.none(), [])
         },
       )
 
@@ -374,7 +369,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
               )
           }
         })
-      #(Model(..model, todos:), patch_effect)
+      #(Model(..model, todos:), patch_effect, [])
     }
 
     UserEnteredEditMode(id) ->
@@ -385,33 +380,40 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
             edit_state: Some(EditState(id:, new_title: item.title)),
           ),
           effect.none(),
+          [],
         )
-        Error(Nil) -> #(model, effect.none())
+        Error(Nil) -> #(model, effect.none(), [])
       }
 
     UserEditedTodo(text) -> {
       let edit_state =
         option.map(model.edit_state, fn(e) { EditState(..e, new_title: text) })
-      #(Model(..model, edit_state:), effect.none())
+      #(Model(..model, edit_state:), effect.none(), [])
     }
 
-    UserExitedEditMode -> #(Model(..model, edit_state: None), effect.none())
+    UserExitedEditMode -> #(Model(..model, edit_state: None), effect.none(), [])
 
     UserSubmittedEditedTodo -> {
       use EditState(id:, new_title:) <- guard.some(
         in: model.edit_state,
-        else_return: fn() { #(Model(..model, edit_state: None), effect.none()) },
+        else_return: fn() {
+          #(Model(..model, edit_state: None), effect.none(), [])
+        },
       )
       let new_title = string.trim(new_title)
 
       use <- bool.lazy_guard(when: string.is_empty(new_title), return: fn() {
-        #(Model(..model, edit_state: None), effect.Message(UserDeletedTodo(id)))
+        #(
+          Model(..model, edit_state: None),
+          effect.Message(UserDeletedTodo(id)),
+          [],
+        )
       })
 
       use item <- guard.ok(
         in: list.find(model.todos, fn(t) { t.id == id }),
         else_return: fn(_) {
-          #(Model(..model, edit_state: None), effect.none())
+          #(Model(..model, edit_state: None), effect.none(), [])
         },
       )
 
@@ -440,13 +442,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
               )
           }
         })
-      #(Model(..model, edit_state: None, todos:), patch_effect)
+      #(Model(..model, edit_state: None, todos:), patch_effect, [])
     }
 
     UserDeletedTodo(id) -> {
       use item_to_remove <- guard.ok(
         in: list.find(model.todos, fn(t) { t.id == id }),
-        else_return: fn(_) { #(model, effect.none()) },
+        else_return: fn(_) { #(model, effect.none(), []) },
       )
 
       let todos = list.filter(model.todos, fn(t) { t.id != id })
@@ -463,7 +465,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
           }
         })
 
-      #(Model(..model, todos:), delete_effect)
+      #(Model(..model, todos:), delete_effect, [])
     }
 
     UserDeletedCompletedTodos -> {
@@ -480,17 +482,18 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
               )
           }
         })
-      #(Model(..model, todos: active), delete_effect)
+      #(Model(..model, todos: active), delete_effect, [])
     }
 
     UserChangedVisibility(visibility) -> #(
       Model(..model, visibility:),
       effect.none(),
+      [],
     )
 
-    UserClickedLogout -> #(model, effect.Redirect("/logout"))
+    UserClickedLogout -> #(model, effect.Redirect("/logout"), [])
 
-    NoOp -> #(model, effect.none())
+    NoOp -> #(model, effect.none(), [])
   }
 }
 
@@ -499,8 +502,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
 pub fn update_with_storage(
   model: Model,
   msg: Msg,
-) -> #(Model, effect.Effect(Msg)) {
-  let #(new_model, effects) = update(model, msg)
+) -> #(Model, effect.Effect(Msg), List(OutMsg)) {
+  let #(new_model, effects, out_msgs) = update(model, msg)
   let todos_json =
     new_model.todos
     |> list.map(todo_item.todo_to_json)
@@ -509,43 +512,11 @@ pub fn update_with_storage(
   #(
     new_model,
     effect.batch([effects, effect.SaveToStore(local_storage_key, todos_json)]),
+    out_msgs,
   )
 }
 
 // ── View ─────────────────────────────────────────────────────────────────────
-
-fn view_toast(toast: Toast) -> Element(Msg) {
-  html.div(
-    [
-      attribute.class(
-        "pointer-events-auto bg-gray-50 border border-gray-200 border-l-4 border-l-amber-400/40 shadow-lg p-4 max-w-sm animate-[toast-in_0.3s_ease-out]",
-      ),
-      attribute.role("alert"),
-    ],
-    [
-      html.div([attribute.class("flex justify-between items-start gap-3")], [
-        html.div([], [
-          html.p([attribute.class("text-sm font-medium text-gray-600")], [
-            text(toast.title),
-          ]),
-          html.p([attribute.class("text-sm text-gray-500 mt-1")], [
-            text(toast.body),
-          ]),
-        ]),
-        html.button(
-          [
-            attribute.class(
-              "text-gray-300 hover:text-gray-500 shrink-0 text-lg leading-none cursor-pointer",
-            ),
-            attribute.aria_label("Dismiss"),
-            event.on_click(ToastDismissed(toast.id)),
-          ],
-          [text("x")],
-        ),
-      ]),
-    ],
-  )
-}
 
 fn todo_list_item(
   edit_state: Option(EditState),
@@ -602,7 +573,7 @@ fn todo_list_item(
                 False -> "text-gray-600"
               }),
             ],
-            [text(item.title)],
+            [element.text(item.title)],
           ),
           html.button(
             [
@@ -612,7 +583,7 @@ fn todo_list_item(
               attribute.attribute("data-testid", "delete-todo"),
               event.on_click(UserDeletedTodo(item.id)),
             ],
-            [text("x")],
+            [element.text("x")],
           ),
         ],
       )
@@ -645,25 +616,13 @@ pub fn view(model: Model) -> Element(Msg) {
   let visible_todos = visible_todos(model.todos, model.visibility)
 
   html.div([attribute.class("bg-gray-100 h-dvh flex h-screen justify-center")], [
-    case model.toasts {
-      [] -> none()
-      toasts ->
-        html.div(
-          [
-            attribute.class(
-              "fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none",
-            ),
-          ],
-          list.map(toasts, view_toast),
-        )
-    },
     html.main([], [
       html.header([], [
         html.h1(
           [
             attribute.class("text-8xl text-rose-300/30 text-center m-5"),
           ],
-          [text("todos")],
+          [element.text("todos")],
         ),
         html.input([
           attribute.type_("text"),
@@ -702,8 +661,8 @@ pub fn view(model: Model) -> Element(Msg) {
                   attribute.attribute("data-testid", "todo-count"),
                 ],
                 [
-                  html.strong([], [text(int.to_string(active_count))]),
-                  text(case active_count {
+                  html.strong([], [element.text(int.to_string(active_count))]),
+                  element.text(case active_count {
                     1 -> " item left"
                     _ -> " items left"
                   }),
@@ -716,7 +675,7 @@ pub fn view(model: Model) -> Element(Msg) {
                     attribute.class(visibility_classes(All, model.visibility)),
                     attribute.attribute("data-testid", "filter-all"),
                   ],
-                  [text("All")],
+                  [element.text("All")],
                 ),
                 html.a(
                   [
@@ -724,7 +683,7 @@ pub fn view(model: Model) -> Element(Msg) {
                     attribute.class(visibility_classes(Active, model.visibility)),
                     attribute.attribute("data-testid", "filter-active"),
                   ],
-                  [text("Active")],
+                  [element.text("Active")],
                 ),
                 html.a(
                   [
@@ -735,7 +694,7 @@ pub fn view(model: Model) -> Element(Msg) {
                     )),
                     attribute.attribute("data-testid", "filter-completed"),
                   ],
-                  [text("Completed")],
+                  [element.text("Completed")],
                 ),
               ]),
               html.button(
@@ -753,14 +712,14 @@ pub fn view(model: Model) -> Element(Msg) {
                   event.on_click(UserDeletedCompletedTodos),
                 ],
                 [
-                  text(
+                  element.text(
                     "Clear completed (" <> int.to_string(completed_count) <> ")",
                   ),
                 ],
               ),
             ],
           )
-        False -> none()
+        False -> element.none()
       },
       html.footer([attribute.class("flex justify-end py-2 px-5 min-w-lg")], [
         html.button(
@@ -769,7 +728,7 @@ pub fn view(model: Model) -> Element(Msg) {
             attribute.attribute("data-testid", "logout"),
             event.on_click(UserClickedLogout),
           ],
-          [text("Logout")],
+          [element.text("Logout")],
         ),
       ]),
     ]),
