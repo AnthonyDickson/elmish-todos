@@ -1,5 +1,5 @@
 # Files generated for and by SQLite
 *.db*
-*.sqlite3
+*.sqlite3*
 
 wwwroot/
