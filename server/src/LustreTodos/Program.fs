@@ -15,6 +15,7 @@ open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Options
 open Microsoft.OpenApi
 open Oxpecker
 open Oxpecker.OpenApi
@@ -30,7 +31,7 @@ open LustreTodos.OpenApi
 open LustreTodos.Todos
 
 
-let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
+let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Config) =
     let oauth2AuthUrl = ouath2.AuthorizationUrl
     let oauth2TokenUrl = ouath2.TokenUrl
 
@@ -144,7 +145,11 @@ let private handleException (loggerFactory : ILoggerFactory) (next : RequestDele
         }
         :> Task)
 
-let configureSerilog (loggingOptions : LoggingOptions) (ctx : HostBuilderContext) (config : LoggerConfiguration) =
+let private configureSerilog
+    (loggingOptions : LoggingConfig)
+    (ctx : HostBuilderContext)
+    (config : LoggerConfiguration)
+    =
     let filePath =
         loggingOptions.FilePath
         |> Option.ofObj
@@ -167,29 +172,10 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
 
-[<EntryPoint>]
-let main (args : string array) : int =
-    let builder = WebApplication.CreateBuilder args
+let private configureBuilder (builder : WebApplicationBuilder) (config : AppConfig) : unit =
     let isDevelopment = builder.Environment.IsDevelopment ()
 
-    let oidcOptions =
-        Config.readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
-
-    let oauthOptions =
-        if isDevelopment then
-            Config.readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
-            |> Some
-        else
-            None
-
-    let loginOptions =
-        Config.readSection<LoginOptions> builder.Services builder.Configuration "Login"
-
-    let loggingOptions =
-        Config.readSection<LoggingOptions> builder.Services builder.Configuration "Logging"
-
-    Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidcOptions
-
+    Auth.configureServices builder.Services isDevelopment config.Oidc
     builder.Services.AddRouting().AddOxpecker () |> ignore
 
     builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
@@ -202,25 +188,21 @@ let main (args : string array) : int =
     builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
-    builder.Host.UseSerilog (configureSerilog loggingOptions) |> ignore
+    builder.Host.UseSerilog (configureSerilog config.Logging) |> ignore
 
-    oauthOptions
-    |> Option.iter (fun oauthOptions -> addOpenApiToBuilder builder oauthOptions)
+    match config.Oauth2 with
+    | Some config when isDevelopment -> addOpenApiToBuilder builder config
+    | _ -> ()
 
-    let app = builder.Build ()
+let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     let isDevelopment = app.Environment.IsDevelopment ()
 
-    let connectionString = app.Configuration.GetConnectionString "Default"
-    applyMigrations connectionString
+    match config.Oauth2 with
+    | Some config when isDevelopment -> addOpenApiToApp app config.ClientId
+    | _ -> ()
 
-    oauthOptions
-    |> Option.iter (fun oauthOptions -> addOpenApiToApp app oauthOptions.ClientId)
-
-    let loginReturnUrl =
-        loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
-
-    let authEndpoints = Auth.endpoints loginReturnUrl
-    let todoEndpoints = Todos.endpoints connectionString
+    let authEndpoints = Auth.endpoints config.Login.ReturnUrl
+    let todoEndpoints = Todos.endpoints config.ConnectionString
     let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
@@ -242,8 +224,35 @@ let main (args : string array) : int =
     app.UseOxpecker allEndpoints |> ignore
 
     // Run the vite dev server for accessing the SPA bundle in the dev environment.
+    // The fallback is explicitly disabled to avoid surprising and difficult to
+    // debug situations where the backend is not loading the code you expect.
     if not isDevelopment then
         app.MapFallbackToFile "index.html" |> ignore
+
+[<EntryPoint>]
+let main (args : string array) : int =
+    let builder = WebApplication.CreateBuilder args
+
+    let config =
+        try
+            Config.load builder.Services builder.Configuration
+        with :? OptionsValidationException as ex ->
+            eprintfn "The server refused to start: configuration validation failed."
+
+            ex.Failures |> Seq.iter (fun failure -> eprintfn "  - %s" failure)
+
+            eprintfn
+                "Fix the settings above and restart. \
+                Values are read from appsettings.json or environment variables (e.g. Oidc__ClientSecret)."
+
+            exit 1
+
+    configureBuilder builder config
+
+    let app = builder.Build ()
+    configureApp app config
+
+    applyMigrations config.ConnectionString
 
     app.Run ()
     0
