@@ -6,6 +6,7 @@ import lustre/effect as lustre_effect
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre_todos/effect
+import lustre_todos/http_effect
 import lustre_todos/out_msg.{type OutMsg}
 import lustre_todos/toast.{type Toast}
 import lustre_todos/todo_page
@@ -16,6 +17,7 @@ pub type Model {
 }
 
 pub type Msg {
+  SessionExpired
   UrlChanged(path: String)
   TodoPageMsg(todo_page.Msg)
   ToastDismissed(id: Uuid)
@@ -108,7 +110,32 @@ pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
     }
+    SessionExpired -> #(model, effect.Redirect("/login"))
   }
+}
+
+/// Rewrite every `HttpRequest` effect so a 401 response dispatches
+/// `SessionExpired` instead of reaching the page's callback. Recurses through
+/// `Batch` because effects reach this point wrapped by `with_auth_redirect`.
+pub fn wrap_http_requests(effect: effect.Effect(Msg)) -> effect.Effect(Msg) {
+  case effect {
+    effect.HttpRequest(callback: original_callback, ..) as request ->
+      effect.HttpRequest(..request, callback: fn(result) {
+        case result {
+          Error(http_effect.HttpError(status: 401, ..)) -> SessionExpired
+          _ -> original_callback(result)
+        }
+      })
+    effect.Batch(effects) -> effect.Batch(list.map(effects, wrap_http_requests))
+    _ -> effect
+  }
+}
+
+fn with_auth_redirect(
+  result: #(Model, effect.Effect(Msg)),
+) -> #(Model, effect.Effect(Msg)) {
+  let #(model, effect) = result
+  #(model, wrap_http_requests(effect))
 }
 
 pub fn view(model: Model) -> Element(Msg) {
@@ -128,7 +155,9 @@ fn update_with_effect(
   model: Model,
   msg: Msg,
 ) -> #(Model, lustre_effect.Effect(Msg)) {
-  let #(new_model, custom_effect) = update(model, msg)
+  let #(new_model, custom_effect) =
+    update(model, msg)
+    |> with_auth_redirect
   #(
     new_model,
     lustre_effect.from(fn(dispatch) { effect.run(custom_effect, dispatch) }),
@@ -136,7 +165,7 @@ fn update_with_effect(
 }
 
 pub fn main() {
-  let #(init_model, init_effect) = init(Nil)
+  let #(init_model, init_effect) = init(Nil) |> with_auth_redirect
 
   let app =
     lustre.application(

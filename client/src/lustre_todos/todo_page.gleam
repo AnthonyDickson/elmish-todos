@@ -253,42 +253,29 @@ pub fn update(
       [],
     )
 
-    ClientFetchedTodos(Error(error)) ->
-      case error.status_code {
-        Some(401) -> #(model, effect.Redirect("/login"), [])
-        _ -> {
-          let title = "Could not sync todos"
-          let body = "Falling back to local data"
+    ClientFetchedTodos(Error(error)) -> {
+      let title = "Could not sync todos"
+      let body = "Falling back to local data"
 
-          #(model, effect.LogError(api_error.describe(error)), [
-            out_msg.PageRequestedToast(
-              title:,
-              body:,
-              level: toast.Error,
-              dismiss_after_ms: Some(5000),
-            ),
-          ])
-        }
-      }
+      #(model, effect.LogError(api_error.describe(error)), [
+        out_msg.PageRequestedToast(
+          title:,
+          body:,
+          level: toast.Error,
+          dismiss_after_ms: Some(5000),
+        ),
+      ])
+    }
 
     TodoActionFailed(action, error) -> {
       let updated_model = rollback(model, action)
-      case error.status_code {
-        Some(401) -> #(updated_model, effect.Redirect("/login"), [])
-        _ -> {
-          case create_toast(model, action) {
-            Some(toast_msg) -> #(
-              updated_model,
-              effect.LogError(api_error.describe(error)),
-              [toast_msg],
-            )
-            None -> #(
-              updated_model,
-              effect.LogError(api_error.describe(error)),
-              [],
-            )
-          }
-        }
+      case create_toast(model, action) {
+        Some(toast_msg) -> #(
+          updated_model,
+          effect.LogError(api_error.describe(error)),
+          [toast_msg],
+        )
+        None -> #(updated_model, effect.LogError(api_error.describe(error)), [])
       }
     }
 

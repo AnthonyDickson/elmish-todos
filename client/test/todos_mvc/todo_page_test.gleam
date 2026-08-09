@@ -3,8 +3,9 @@ import gleam/option.{None, Some}
 import gleam/time/timestamp.{type Timestamp}
 import gleeunit/should
 import lustre_todos/api_error
-import lustre_todos/effect.{HttpRequest, Message, Redirect}
+import lustre_todos/effect.{HttpRequest, Message}
 import lustre_todos/http_effect.{Delete}
+import lustre_todos/out_msg
 import lustre_todos/todo_item.{type Todo}
 import lustre_todos/todo_page
 import youid/uuid.{type Uuid}
@@ -213,11 +214,11 @@ pub fn update_todo_action_failed_delete_rolls_back_in_order_test() {
   c.id |> should.equal(id3())
 }
 
-// Update: TodoActionFailed (401) redirect
-// INVARIANT: A 401 must both roll back the optimistic change AND redirect to
-// login. Either alone is wrong — rollback-only leaves the user interacting
-// with stale data; redirect-only means state is wrong on return.
-pub fn update_todo_action_failed_401_redirects_test() {
+// Update: TodoActionFailed (401)
+// INVARIANT: A 401 must roll back the optimistic change and surface an error
+// toast like any other failure. The redirect to login is handled centrally in
+// `app.gleam` (`wrap_http_requests`), so the page must not emit a redirect.
+pub fn update_todo_action_failed_401_rolls_back_test() {
   // Given a model where a todo was optimistically toggled
   let model =
     todo_page.Model(..empty_model(), todos: [
@@ -226,7 +227,7 @@ pub fn update_todo_action_failed_401_redirects_test() {
     ])
 
   // When that toggle fails with a 401
-  let #(new_model, effect, _out_msgs) =
+  let #(new_model, effect, out_msgs) =
     todo_page.update(
       model,
       todo_page.TodoActionFailed(
@@ -244,6 +245,8 @@ pub fn update_todo_action_failed_401_redirects_test() {
   let assert Ok(item) =
     list.find(new_model.todos, fn(item) { item.id == id1() })
   item.completed |> should.equal(False)
-  // And a redirect effect should be produced
-  let assert Redirect("/login") = effect
+  // And an error toast should be requested (no redirect to login)
+  out_msgs |> list.length |> should.equal(1)
+  let assert Ok(out_msg.PageRequestedToast(..)) = list.first(out_msgs)
+  let assert effect.LogError(_) = effect
 }
