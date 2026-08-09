@@ -439,7 +439,5 @@ module Todos =
     open LustreTodos.Auth
     open LustreTodos.Db
 
-    let endpoints (connectionString : string) =
-        QueryContextFactory.Create connectionString
-        |> Api.endpoints
-        |> Seq.map (addFilter Auth.requireAuth)
+    let endpoints (queryContext : QueryContextFactory) =
+        Api.endpoints queryContext |> Seq.map (addFilter Auth.requireAuth)

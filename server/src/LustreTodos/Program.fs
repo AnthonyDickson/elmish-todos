@@ -2,6 +2,7 @@ module LustreTodos.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
+open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
 
@@ -21,13 +22,16 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 open Serilog
+open Serilog.Events
 open Serilog.Formatting.Compact
 
 open LustreTodos.ApiError
 open LustreTodos.Auth
 open LustreTodos.Config
+open LustreTodos.Db
 open LustreTodos.Json
 open LustreTodos.OpenApi
+open LustreTodos.Status
 open LustreTodos.Todos
 
 
@@ -155,8 +159,39 @@ let private configureSerilog
         |> Option.ofObj
         |> Option.filter (not << System.String.IsNullOrWhiteSpace)
 
-    config.MinimumLevel.Information().WriteTo.Console (RenderedCompactJsonFormatter ())
+    config.MinimumLevel.Information () |> ignore
+
+    // Filter out healthcheck noise for the status endpoint. Framework per-request logs
+    // (Microsoft.AspNetCore.Hosting.Diagnostics) carry no status code, so they are dropped
+    // whenever the path matches. The app's own buffered request-log summary does carry the
+    // status code, so only successful probes are dropped; failures (503) stay visible.
+    config.Filter.ByExcluding (fun (e : LogEvent) ->
+        let prop name =
+            match e.Properties.TryGetValue name with
+            | true, (:? ScalarValue as sv) -> string sv.Value
+            | _ -> ""
+
+        let source = prop "SourceContext"
+        let requestPath = prop "RequestPath"
+
+        let statusCode =
+            match e.Properties.TryGetValue "StatusCode" with
+            | true, (:? ScalarValue as sv) ->
+                match System.Int32.TryParse (string sv.Value) with
+                | true, code -> code
+                | _ -> 0
+            | _ -> 0
+
+        let isStatusProbe = requestPath.StartsWith Status.Api.Path
+
+        let isFrameworkLog =
+            source.StartsWith "Microsoft.AspNetCore"
+            || source.StartsWith "Microsoft.Hosting"
+
+        isStatusProbe && (isFrameworkLog || statusCode < 400))
     |> ignore
+
+    config.WriteTo.Console (RenderedCompactJsonFormatter ()) |> ignore
 
     match filePath with
     | Some path -> config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
@@ -171,6 +206,18 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "10.0.0.0/8")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
+
+let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
+    let queryContext = QueryContextFactory.Create connectionString
+    let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
+
+    let authEndpoints = Auth.endpoints loginReturnUrl
+    let todoEndpoints = Todos.endpoints queryContext
+
+    let statusEndpoints =
+        Status.endpoints connectionString app.Environment.EnvironmentName startedAt
+
+    Seq.concat [ authEndpoints; todoEndpoints; statusEndpoints ]
 
 let private configureBuilder (builder : WebApplicationBuilder) (config : AppConfig) : unit =
     let isDevelopment = builder.Environment.IsDevelopment ()
@@ -201,10 +248,6 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     | Some config when isDevelopment -> addOpenApiToApp app config.ClientId
     | _ -> ()
 
-    let authEndpoints = Auth.endpoints config.Login.ReturnUrl
-    let todoEndpoints = Todos.endpoints config.ConnectionString
-    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
-
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
@@ -221,7 +264,9 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     |> ignore
 
     app.UseAuthorization () |> ignore
-    app.UseOxpecker allEndpoints |> ignore
+
+    app.UseOxpecker (buildEndpoints config.ConnectionString config.Login.ReturnUrl app)
+    |> ignore
 
     // Run the vite dev server for accessing the SPA bundle in the dev environment.
     // The fallback is explicitly disabled to avoid surprising and difficult to
