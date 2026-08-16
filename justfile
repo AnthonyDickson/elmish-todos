@@ -66,6 +66,11 @@ outdated:
 	cd client && npm outdated
 	cd server && dotnet list package --outdated
 
+update-deps:
+	cd client && gleam deps update
+	cd client && npm update
+	cd server && dotnet package update
+
 # ── Database ──────────────────────────────────────────────────────────────
 
 # Scaffold a new migration file
