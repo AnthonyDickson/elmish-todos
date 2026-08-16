@@ -6,6 +6,10 @@
 A full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI)
 and a Gleam/Lustre SPA frontend (Tailwind CSS v4, Vite).
 This repo is a template — fork or clone it, then run `scripts/rename.sh` to adopt it for your own project.
+This repo only covers the core patterns and infrastructure, for more complete examples see these projects based on this template:
+
+- [Budgeteur](https://github.com/AnthonyDickson/budgeteur-fs)
+  Modals, componentless architecture
 
 ## Getting Started
 
